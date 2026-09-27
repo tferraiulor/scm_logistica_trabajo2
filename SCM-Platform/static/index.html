@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SCM Platform · Predictive &amp; Agentic</title>
+<script src="/static/lib/tailwind.js"></script>
+<script src="/static/lib/chart.umd.min.js"></script>
+<script>
+tailwind.config={theme:{extend:{colors:{
+  night:{900:'#0a0e1a',800:'#111827',700:'#1a2235',600:'#243047'},
+  accent:'#22d3ee',warn:'#f59e0b',crit:'#f43f5e',good:'#10b981'
+}}}};
+</script>
+<style>
+body{font-family:'Inter',system-ui,sans-serif;}
+.tab-active{border-bottom:3px solid #22d3ee;color:#22d3ee;font-weight:600;}
+.card{background:#111827;border:1px solid #243047;border-radius:0.75rem;}
+.muted{color:#9ca3af;}
+.chip{display:inline-block;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:600;}
+.chip.green{background:#10b98122;color:#10b981;}
+.chip.red{background:#f43f5e22;color:#f43f5e;}
+.chip.amber{background:#f59e0b22;color:#f59e0b;}
+.chip.cyan{background:#22d3ee22;color:#22d3ee;}
+.btn{border:1px solid #243047;border-radius:0.5rem;padding:6px 12px;font-size:13px;transition:all .15s;}
+.btn:hover{background:#1a2235;}
+.btn.primary{background:#22d3ee22;border-color:#22d3ee55;color:#22d3ee;}
+.btn.primary:hover{background:#22d3ee33;}
+.btn.crit{background:#f43f5e22;border-color:#f43f5e55;color:#f43f5e;}
+input,select{background:#0a0e1a;border:1px solid #243047;border-radius:0.5rem;padding:6px 10px;font-size:13px;color:#e5e7eb;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{text-align:left;color:#9ca3af;font-weight:500;padding:8px;border-bottom:1px solid #243047;}
+td{padding:8px;border-bottom:1px solid #1a2235;}
+tr:hover{background:#1a223544;}
+.scroll{max-height:500px;overflow-y:auto;}
+::-webkit-scrollbar{width:8px;height:8px;}
+::-webkit-scrollbar-thumb{background:#243047;border-radius:8px;}
+::-webkit-scrollbar-track{background:transparent;}
+
+/* Tooltip informativo */
+.tip{position:relative;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#243047;color:#6b7280;font-size:10px;font-weight:700;cursor:help;flex-shrink:0;margin-left:4px;}
+.tip:hover{background:#22d3ee33;color:#22d3ee;}
+.tip .tip-text{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1a2235;border:1px solid #243047;border-radius:0.5rem;padding:8px 12px;font-size:11px;font-weight:400;line-height:1.5;white-space:nowrap;color:#d1d5db;z-index:50;min-width:200px;max-width:320px;white-space:normal;pointer-events:none;box-shadow:0 4px 20px #00000066;}
+.tip:hover .tip-text{display:block;}
+
+/* stock bar animation */
+.stock-bar{transition:width 0.5s ease;}
+</style>
+</head>
+<body class="bg-night-900 text-gray-200 min-h-screen">
+<div class="max-w-7xl mx-auto p-4">
+
+  <!-- Header -->
+  <header class="flex items-center justify-between py-3 border-b border-night-600 mb-4 flex-wrap gap-2">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-lg bg-accent/20 flex items-center justify-center text-accent font-black">SC</div>
+      <div>
+        <h1 class="text-lg font-bold text-white leading-tight">Supply Chain Command Center</h1>
+        <p class="text-xs muted">Gestión predictiva y automatización agéntica</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <span id="role-badge" class="chip cyan">Logistics Manager</span>
+      <button onclick="runAllDemos()" class="btn primary text-sm font-semibold">▶ Demo autónoma</button>
+      <span id="health" class="chip green">● Online</span>
+    </div>
+  </header>
+
+  <!-- KPIs -->
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4" id="kpis"></div>
+
+  <!-- Tabs -->
+  <nav class="flex gap-4 flex-wrap border-b border-night-600 mb-4 text-sm">
+    <button class="tab tab-active pb-2" data-tab="m1">1 · Previsión</button>
+    <button class="tab pb-2 muted hover:text-white" data-tab="m2">2 · Rutas &amp; Agente</button>
+    <button class="tab pb-2 muted hover:text-white" data-tab="m3">3 · Almacén</button>
+    <button class="tab pb-2 muted hover:text-white" data-tab="m4">4 · Proveedores</button>
+    <button class="tab pb-2 muted hover:text-white" data-tab="m5">5 · Gobernanza</button>
+  </nav>
+
+  <!-- CONTENIDO: se rellena por JS, el canvas vive aquí fuera para no morir -->
+  <div id="content"></div>
+  <div id="loading" class="text-center muted py-10">Cargando plataforma…</div>
+</div>
+
+<script>
+const API='';
+let demandChart=null;
+let currentTab='m1';
+
+const $=sel=>document.querySelector(sel);
+const $$=sel=>document.querySelectorAll(sel);
+
+async function api(path,opts={}){
+  const ctrl=new AbortController();
+  const t=setTimeout(()=>ctrl.abort(),15000);
+  try{
+    const r=await fetch(API+path,{headers:{'Content-Type':'application/json'},signal:ctrl.signal,...opts});
+    if(!r.ok)throw new Error((await r.text()));
+    return r.json();
+  }finally{clearTimeout(t);}
+}
+
+/* ---- Tooltip helper ---- */
+function tip(text){ return `<span class="tip">?<span class="tip-text">${text}</span></span>`; }
+
+/* ---- Tabs ---- */
+document.querySelectorAll('.tab').forEach(b=>{
+  b.addEventListener('click',()=>switchTab(b.dataset.tab));
+});
+function switchTab(tab){
+  currentTab=tab;
+  $$('.tab').forEach(b=>{
+    const on=b.dataset.tab===tab;
+    b.classList.toggle('tab-active',on);
+    b.classList.toggle('muted',!on);
+  });
+  loadTab();
+}
+function render(contentHTML){ $('#content').innerHTML=contentHTML; const l=$('#loading'); if(l)l.style.display='none'; }
+
+/* ---- KPIs ---- */
+async function loadKPIs(){
+  try{
+    const d=await api('/api/dashboard');
+    $('#kpis').innerHTML=`
+      <div class="card p-3">
+        <div class="text-xs muted">Reducción error previsión ${tip('Comparación del modelo predictivo vs un método naive (repetir el último valor). Objetivo McKinsey: reducir errores 20-50%.')}</div>
+        <div class="text-2xl font-bold text-good">${d.forecast_improvement.avg_error_reduction_pct??'—'}%</div>
+        <div class="text-[11px] muted">vs baseline naive</div>
+      </div>
+      <div class="card p-3">
+        <div class="text-xs muted">Proveedores en riesgo ${tip('Proveedores con score de riesgo < 60 (sobre 100). Evalúa OTIF + estabilidad financiera + riesgo geopolítico.')}</div>
+        <div class="text-2xl font-bold text-warn">${d.supplier_risk.length}</div>
+        <div class="text-[11px] muted">score &lt; 60</div>
+      </div>
+      <div class="card p-3">
+        <div class="text-xs muted">Pendientes aprobación ${tip('Decisiones de la IA que requieren tu autorización antes de ejecutarse (coste alto, contractual, legal).')}</div>
+        <div class="text-2xl font-bold text-crit">${d.pending_approvals}</div>
+        <div class="text-[11px] muted"><a class="text-accent cursor-pointer" onclick="switchTab('m5')">ver gobernanza →</a></div>
+      </div>
+      <div class="card p-3">
+        <div class="text-xs muted">Trabajos abiertos ${tip('Órdenes de mantenimiento predictivo generadas automáticamente antes de que la maquinaria falle.')}</div>
+        <div class="text-2xl font-bold text-warn">${d.open_work_orders}</div>
+        <div class="text-[11px] muted">mantenimiento IoT</div>
+      </div>
+      <div class="card p-3">
+        <div class="text-xs muted">Entregas activas ${tip('Envíos en tránsito o planificados que el agente autónomo monitoriza en tiempo real.')}</div>
+        <div class="text-2xl font-bold text-accent">${d.active_deliveries}</div>
+        <div class="text-[11px] muted">${d.alerts_open} alertas</div>
+      </div>`;
+  }catch(e){ console.error(e); }
+}
+
+/* ==================== MÓDULO 1 ==================== */
+async function loadM1(){
+  const [skus,regions,improvement]=await Promise.all([
+    api('/api/demand/skus'),api('/api/demand/regions'),api('/api/demand/improvement')
+  ]);
+  render(`
+  <!-- Panel de control + gráfico (lado a lado) -->
+  <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+    <!-- CONTROLES -->
+    <div class="card p-4 space-y-3">
+      <div class="flex items-center gap-1">
+        <h3 class="font-semibold text-white">Configurar previsión</h3>
+        ${tip('Selecciona un producto y región. El modelo ML usa datos históricos + clima + promociones para predecir la demanda futura.')}
+      </div>
+
+      <div>
+        <div class="flex items-center gap-1 mb-1">
+          <label class="text-xs muted">Producto</label>
+          ${tip('Elige el SKU cuya demanda quieres predecir. Cada producto tiene un patrón de demanda distinto.')}
+        </div>
+        <select id="m1-sku" onchange="runForecast()" class="w-full">${skus.map(s=>`<option value="${s.sku}">${s.name}</option>`).join('')}</select>
+      </div>
+
+      <div>
+        <div class="flex items-center gap-1 mb-1">
+          <label class="text-xs muted">Región</label>
+          ${tip('La ubicación geográfica afecta el clima, las promociones locales y el inventario disponible.')}
+        </div>
+        <select id="m1-region" onchange="runForecast()" class="w-full">${regions.map(r=>`<option value="${r.region_id}">${r.name}</option>`).join('')}</select>
+      </div>
+
+      <div>
+        <div class="flex items-center gap-1 mb-1">
+          <label class="text-xs muted">Horizonte de previsión</label>
+          ${tip('Número de días futuros que se predicen. 14 días es típico para planificación semanal.')}
+        </div>
+        <div class="flex gap-2">
+          <button class="btn text-xs" onclick="setHorizon(14)" id="h14">14d</button>
+          <button class="btn primary text-xs" onclick="setHorizon(30)" id="h30">30d</button>
+          <button class="btn text-xs" onclick="setHorizon(60)" id="h60">60d</button>
+        </div>
+        <input id="m1-horizon" type="hidden" value="30">
+      </div>
+
+      <hr class="border-night-600">
+
+      <!-- Subida de archivo -->
+      <div>
+        <div class="flex items-center gap-1 mb-1">
+          <label class="text-xs muted">Subir histórico ERP</label>
+          ${tip('Importa ventas históricas en CSV (columnas: date, sku, region_id, units) o JSON. Esto enriquece el entrenamiento del modelo.')}
+        </div>
+        <input id="m1-file" type="file" accept=".csv,.json" class="text-xs w-full">
+        <button class="btn w-full mt-2 text-xs" onclick="uploadSales()">Subir archivo</button>
+      </div>
+    </div>
+
+    <!-- GRÁFICO -->
+    <div class="card p-4 lg:col-span-3">
+      <div class="flex justify-between items-center mb-2">
+        <div class="flex items-center gap-1">
+          <h3 class="font-semibold text-white">Demanda predicha vs real</h3>
+          ${tip('La línea cian es la predicción del modelo. El sombreado es el intervalo de confianza al 95%. Si hay datos reales recientes, aparecen en verde.')}
+        </div>
+        <span class="text-xs muted">Modelo: Holt-Winters + promos + clima</span>
+      </div>
+      <!-- Canvas: SE MANTIENE estático, no se recrea con innerHTML -->
+      <div style="height:320px"><canvas id="demandChart"></canvas></div>
+      <div id="m1-improvement" class="grid grid-cols-3 gap-3 mt-4"></div>
+    </div>
+  </div>
+
+  <!-- Stock + Alertas -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+    <div class="card p-4">
+      <div class="flex items-center gap-1 mb-3">
+        <h3 class="font-semibold text-white">Stock actual en almacén</h3>
+        ${tip('Nivel actual de inventario por producto y región. La barra muestra llenado relativo: si queda poco (rojo), hay riesgo de rotura.')}
+      </div>
+      <div class="scroll" id="m1-stock"></div>
+    </div>
+    <div class="card p-4">
+      <div class="flex items-center gap-1 mb-3">
+        <h3 class="font-semibold text-white">Alertas de inventario</h3>
+        ${tip('El sistema detecta automáticamente: ROTURA = stock insuficiente para la demanda proyectada, EXCESO = demasiado inventario sin demanda.')}
+      </div>
+      <div id="m1-alerts" class="scroll text-xs muted">Genera una previsión para activar alertas.</div>
+    </div>
+  </div>`);
+
+  $('#m1-improvement').innerHTML=`
+    <div class="bg-night-700 rounded-lg p-3 text-center">
+      <div class="text-xs muted">Error modelo (MAPE)</div>
+      <div class="text-xl font-bold text-accent">${improvement.avg_model_mape??'—'}%</div>
+    </div>
+    <div class="bg-night-700 rounded-lg p-3 text-center">
+      <div class="text-xs muted">Error naive</div>
+      <div class="text-xl font-bold text-gray-400">${improvement.avg_naive_mape??'—'}%</div>
+    </div>
+    <div class="bg-night-700 rounded-lg p-3 text-center">
+      <div class="text-xs muted">Mejora</div>
+      <div class="text-xl font-bold ${improvement.meets_mckinsey_20_50?'text-good':'text-warn'}">${improvement.avg_error_reduction_pct??'—'}%</div>
+      <div class="text-[10px] muted">obj. 20-50%</div>
+    </div>`;
+
+  await runForecast();
+  await loadStock();
+}
+
+function setHorizon(d){
+  $('#m1-horizon').value=d;
+  [14,30,60].forEach(h=>{
+    const b=$('#h'+h);
+    if(b){ b.classList.remove('primary'); if(h===d)b.classList.add('primary'); }
+  });
+  runForecast();
+}
+
+async function runForecast(){
+  if(!$('#m1-sku'))return;
+  const sku=$('#m1-sku').value,region=$('#m1-region').value,horizon=$('#m1-horizon').value;
+  const res=await api('/api/demand/forecast',{method:'POST',body:JSON.stringify({sku,region_id:region,horizon_days:parseInt(horizon)||30})});
+  renderDemandChart(res);
+  loadStock(); // refresca stock de la región seleccionada
+  // Métricas del modelo PARA ESTE SKU/REGIÓN (no medias globales)
+  const imp=$('#m1-improvement');
+  if(imp){
+    const meets=res.mape_improvement_pct!=null&&res.mape_improvement_pct>=20&&res.mape_improvement_pct<=50;
+    imp.innerHTML=`
+      <div class="bg-night-700 rounded-lg p-3 text-center">
+        <div class="text-xs muted">Error modelo (MAPE)</div>
+        <div class="text-xl font-bold text-accent">${res.mape??'—'}%</div>
+      </div>
+      <div class="bg-night-700 rounded-lg p-3 text-center">
+        <div class="text-xs muted">Error naive</div>
+        <div class="text-xl font-bold text-gray-400">${res.naive_mape??'—'}%</div>
+      </div>
+      <div class="bg-night-700 rounded-lg p-3 text-center">
+        <div class="text-xs muted">Mejora sobre naive</div>
+        <div class="text-xl font-bold ${meets?'text-good':'text-warn'}">${res.mape_improvement_pct??'—'}%</div>
+        <div class="text-[10px] muted">obj. 20-50%</div>
+      </div>`;
+  }
+  // Alertas
+  $('#m1-alerts').innerHTML=res.alerts.map(a=>
+    `<div class="flex items-start gap-2 py-2 border-b border-night-700">
+      <span class="chip ${a.severity==='critical'?'red':a.severity==='warning'?'amber':'cyan'}">${a.severity}</span>
+      <span class="text-xs">${a.message}</span>
+    </div>`
+  ).join('')||'<div class="flex items-center gap-2 py-2 text-good"><span class="chip green">ok</span><span class="text-xs">Sin alertas — inventario adecuado para la demanda proyectada.</span></div>';
+}
+
+function renderDemandChart(res){
+  // DESTRUIR chart anterior antes de crear uno nuevo
+  if(demandChart){demandChart.destroy();demandChart=null;}
+  if(!$('#demandChart'))return;
+  const labels=res.projections.map(p=>p.date.slice(5));
+  const pred=res.projections.map(p=>p.predicted_units);
+  const up=res.projections.map(p=>p.upper_bound);
+  const low=res.projections.map(p=>p.lower_bound);
+  const ctx=$('#demandChart');
+  demandChart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {label:'Predicha',data:pred,borderColor:'#22d3ee',backgroundColor:'#22d3ee15',fill:false,tension:.3,pointRadius:2,pointBackgroundColor:'#22d3ee'},
+        {label:'Confianza alta',data:up,borderColor:'#22d3ee33',fill:'+1',backgroundColor:'#22d3ee11',pointRadius:0,borderDash:[4,4]},
+        {label:'Confianza baja',data:low,borderColor:'transparent',pointRadius:0,fill:false},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{intersect:false,mode:'index'},
+      plugins:{legend:{labels:{color:'#9ca3af',usePointStyle:true,pointStyle:'circle'}},
+        tooltip:{backgroundColor:'#1a2235',borderColor:'#243047',borderWidth:1,
+          callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y.toFixed(0)} unidades`}}},
+      scales:{
+        x:{ticks:{color:'#6b7280',maxRotation:45},grid:{color:'#1a2235'}},
+        y:{ticks:{color:'#6b7280'},grid:{color:'#1a2235'},beginAtZero:true}
+      }
+    }
+  });
+}
+
+async function loadStock(){
+  const region=$('#m1-region')?$('#m1-region').value:'R-MAD';
+  const rows=await api('/api/demand/stock?region_id='+encodeURIComponent(region));
+  const sku=$('#m1-sku')?$('#m1-sku').value:null;
+  let html='';
+  if(!rows||rows.length===0){ html='<span class="text-xs muted">Sin datos de inventario para esta región.</span>'; }
+  else{
+    html=rows.map(r=>{
+      const pct=Math.min(100,Math.max(0,parseInt(r.fill_pct)||0));
+      const color=pct<30?'#f43f5e':pct<60?'#f59e0b':'#10b981';
+      const isCurrent=sku&&r.sku===sku;
+      return `<div class="flex items-center gap-3 py-1.5 border-b border-night-700 ${isCurrent?'bg-night-700':''}">
+        <span class="text-xs font-mono text-gray-300 w-28">${r.sku.replace('SKU-','')}</span>
+        <span class="text-xs muted flex-1 truncate">${r.name}</span>
+        <div class="flex items-center gap-2 w-40">
+          <div class="flex-1 bg-night-700 rounded-full h-2.5 overflow-hidden">
+            <div class="stock-bar h-full rounded-full" style="width:${pct}%;background:${color}"></div>
+          </div>
+          <span class="text-[11px] font-mono w-10 text-right">${r.on_hand}</span>
+        </div>
+        <span class="chip ${pct<30?'red':pct<60?'amber':'green'}" style="font-size:10px">${pct<30?'⚠ bajo':pct<100?'ok':'lleno'}</span>
+      </div>`;
+    }).join('');
+  }
+  const nCrit=rows?rows.filter(r=>parseInt(r.fill_pct)<30).length:0;
+  const nLow=rows?rows.filter(r=>parseInt(r.fill_pct)>=30&&parseInt(r.fill_pct)<60).length:0;
+  $('#m1-stock').innerHTML=`
+    <div class="flex items-center gap-3 text-[11px] muted mb-2">
+      <span>📍 ${region}</span>
+      <span class="text-crit">${nCrit} con riesgo</span>
+      <span class="text-warn">${nLow} bajo nivel</span>
+      <span>Click en un producto en el selector para resaltarlo</span>
+    </div>
+    ${html}`;
+}
+
+async function uploadSales(){
+  const f=$('#m1-file').files[0]; if(!f) return;
+  const fd=new FormData(); fd.append('file',f);
+  const r=await fetch('/api/demand/ingest',{method:'POST',body:fd});
+  const j=await r.json();
+  alert(`Ingestado ${j.rows_ingested}/${j.rows_received} registros${j.unknown_skus.length?'\nSKUs no reconocidos: '+j.unknown_skus.join(', '):''}`);
+}
+
+/* ==================== MAPA DE RUTAS (SVG offline) ==================== */
+const MAP_CITIES={
+  'madrid':[40.4168,-3.7038],'barcelona':[41.3874,2.1686],'valencia':[39.4699,-0.3763],
+  'sevilla':[37.3891,-5.9845],'bilbao':[43.263,-2.935],'frankfurt':[50.1109,8.6821],
+  'lisboa':[38.7223,-9.1393],'milán':[45.4642,9.19],'milan':[45.4642,9.19],'mad':[40.4168,-3.7038],
+  'bcn':[41.3874,2.1686],'vlc':[39.4699,-0.3763],'sev':[37.3891,-5.9845],'bil':[43.263,-2.935],
+  'fra':[50.1109,8.6821],'lis':[38.7223,-9.1393],'mil':[45.4642,9.19]
+};
+const MAP_STYLE={w:720,h:430,lngMin:-10.6,lngMax:12.5,latMin:33.6,latMax:52.5};
+function mapXY(city){
+  const key=(city||'').toLowerCase().replace(/^wh[-_]/,'');
+  const c=MAP_CITIES[key]||MAP_CITIES[key.replace(/^r[-_]/,'')];
+  if(!c)return null;
+  const s=MAP_STYLE;
+  const x=(c[1]-s.lngMin)/(s.lngMax-s.lngMin)*s.w;
+  const y=(s.latMax-c[0])/(s.latMax-s.latMin)*s.h;
+  return [x,y];
+}
+function mapLatLng(lat,lng){
+  const s=MAP_STYLE;
+  return [(lng-s.lngMin)/(s.lngMax-s.lngMin)*s.w,(s.latMax-lat)/(s.latMax-s.latMin)*s.h];
+}
+function polyPoints(ps){
+  const s=MAP_STYLE;
+  return ps.map(p=>{
+    const x=(p[1]-s.lngMin)/(s.lngMax-s.lngMin)*s.w;
+    const y=(s.latMax-p[0])/(s.latMax-s.latMin)*s.h;
+    return x.toFixed(1)+','+y.toFixed(1);
+  }).join(' ');
+}
+/* Siluetas de costa (lat,lng) para un mapa realista 100% offline */
+const LAND_IBERIA=[
+  [43.72,-8.72],[43.60,-7.05],[43.56,-5.95],[43.28,-3.15],[42.92,-1.62],[43.35,-1.30],
+  [42.63,0.30],[42.35,1.90],[41.75,2.35],[41.05,1.20],[40.55,0.50],[39.10,0.28],
+  [38.90,-0.10],[37.95,-0.75],[37.55,-1.05],[37.60,-1.70],[36.75,-2.25],[36.60,-4.50],
+  [36.05,-5.10],[36.02,-5.65],[36.20,-6.75],[36.95,-6.10],[36.95,-7.20],[37.10,-8.70],
+  [38.72,-9.40],[40.00,-8.90],[41.10,-8.60],[41.70,-8.90],[42.35,-9.05],[42.90,-9.30],[43.40,-8.40]
+];
+const LAND_FRANCE=[
+  [43.35,-1.75],[42.60,-0.45],[42.52,1.10],[42.32,3.22],[43.00,3.05],[43.20,5.05],
+  [43.10,6.15],[43.30,7.40],[44.05,7.55],[45.90,6.90],[46.35,7.05],[47.30,7.50],
+  [48.20,7.75],[49.10,8.20],[50.40,9.60],[51.50,11.20],[52.50,12.50],
+  [52.50,1.20],[51.20,-1.60],[49.60,-1.10],[48.70,-4.60],[46.70,-2.00],
+  [45.70,-1.30],[44.50,-1.20]
+];
+const LAND_AFRICA=[
+  [35.78,-5.90],[35.99,-3.02],[36.24,0.20],[36.40,2.30],[36.83,6.90],[37.04,10.20],
+  [37.60,12.50],[34.00,12.50],[33.90,-10.58],[35.20,-9.30]
+];
+const BORDER_PT=[[41.90,-8.90],[41.48,-8.15],[40.25,-7.10],[39.50,-6.60],[38.70,-7.10],[37.90,-7.70],[37.08,-7.42]];
+const BORDER_PYR=[[43.32,-1.60],[42.60,-0.45],[42.48,1.10],[42.33,3.22]];
+const CITY_DISPLAY=[['madrid','Madrid'],['barcelona','Barcelona'],['valencia','Valencia'],['sevilla','Sevilla'],['bilbao','Bilbao'],['lisboa','Lisboa'],['frankfurt','Frankfurt'],['milán','Milán']];
+function truckSvg(x,y,fill,problem){
+  const bad=problem?'#f43f5e':fill;
+  let s=`<rect x="${x-4}" y="${y-4.5}" width="3.6" height="9" rx="1.2" fill="${bad}"/>`;
+  s+=`<rect x="${x-1.8}" y="${y-5.2}" width="6.4" height="10.4" rx="1.4" fill="${bad}" stroke="#0a0e1a" stroke-width="0.8"/>`;
+  s+=`<rect x="${x-3.2}" y="${y-3.1}" width="2.1" height="1.7" rx="0.5" fill="#e2e8f0" opacity="0.85"/>`;
+  s+=`<circle cx="${x-2.2}" cy="${y+4.6}" r="1.2" fill="#0a0e1a"/><circle cx="${x+3.2}" cy="${y+4.6}" r="1.2" fill="#0a0e1a"/>`;
+  return s;
+}
+/* ---- Red de carreteras (corredores de autovía, 100% offline) ---- */
+const ROAD_NODES={
+  'Madrid':[40.4168,-3.7038],'Zaragoza':[41.6488,-0.8891],'Lleida':[41.6176,0.6200],'Barcelona':[41.3874,2.1686],
+  'Tarragona':[41.1189,1.2445],'Valencia':[39.4699,-0.3763],'Cuenca':[40.0704,-2.1379],'Córdoba':[37.8882,-4.7794],
+  'Sevilla':[37.3891,-5.9845],'Huelva':[37.2512,-6.9432],'Faro':[37.0194,-7.9304],'Évora':[38.5712,-7.9095],
+  'Cáceres':[39.4773,-6.3727],'Mérida':[38.9167,-6.3433],'Lisboa':[38.7223,-9.1393],'Burgos':[42.3439,-3.6976],
+  'Vitoria':[42.8467,-2.6722],'Bilbao':[43.263,-2.935],'Logroño':[42.4674,-2.4458],'Donostia':[43.3214,-1.9854],
+  'Irún':[43.3381,-1.7888],'Bayona':[43.4929,-1.4748],'Burdeos':[44.8378,-0.5792],'París':[48.8566,2.3522],
+  'Reims':[49.2583,4.0317],'Metz':[49.1193,6.1757],'Frankfurt':[50.1109,8.6821]
+};
+const CORRIDORS=[
+  ['Madrid','Zaragoza','Lleida','Barcelona'],
+  ['Barcelona','Tarragona','Valencia'],
+  ['Madrid','Cuenca','Valencia'],
+  ['Madrid','Córdoba','Sevilla'],
+  ['Madrid','Cáceres','Mérida','Évora','Lisboa'],
+  ['Sevilla','Huelva','Faro','Lisboa'],
+  ['Madrid','Burgos','Vitoria','Bilbao'],
+  ['Bilbao','Donostia','Irún','Bayona','Burdeos','París','Reims','Metz','Frankfurt'],
+  ['Zaragoza','Logroño','Bilbao']
+];
+const _roadAdj={};
+CORRIDORS.forEach(c=>c.forEach((n,i)=>{if(i>0){(_roadAdj[c[i-1]]=_roadAdj[c[i-1]]||[]).push(n);(_roadAdj[n]=_roadAdj[n]||[]).push(c[i-1]);}}));
+function cityName(x){
+  const k=(x||'').toLowerCase().replace(/^wh[-_]/,'');
+  const A={mad:'Madrid',bcn:'Barcelona',vlc:'Valencia',sev:'Sevilla',bil:'Bilbao',fra:'Frankfurt',lis:'Lisboa',mil:'Milán',milan:'Milán',madrid:'Madrid',barcelona:'Barcelona',valencia:'Valencia',sevilla:'Sevilla',bilbao:'Bilbao',frankfurt:'Frankfurt',lisboa:'Lisboa',milán:'Milán'};
+  return A[k]||(k.charAt(0).toUpperCase()+k.slice(1));
+}
+function roadPath(a,b){
+  if(a===b||!ROAD_NODES[a]||!ROAD_NODES[b])return [a,b];
+  const prev={a:null},seen={};const q=[a];seen[a]=1;
+  while(q.length){
+    const u=q.shift();
+    if(u===b){const p=[b];let cur=b;while(prev[cur]){p.unshift(prev[cur]);cur=prev[cur];}return p;}
+    for(const v of (_roadAdj[u]||[]))if(!seen[v]){seen[v]=1;prev[v]=u;q.push(v);}
+  }
+  return [a,b];
+}
+function roadCoords(n){return ROAD_NODES[n]||MAP_CITIES[n.toLowerCase()];}
+function roadPixels(a,b){
+  return roadPath(a,b).map(n=>{const c=roadCoords(n);return c?mapLatLng(c[0],c[1]):null;}).filter(Boolean);
+}
+function roadPoint(pts,t){
+  let total=0;const segs=[];
+  for(let i=1;i<pts.length;i++){const dx=pts[i][0]-pts[i-1][0],dy=pts[i][1]-pts[i-1][1];const len=Math.hypot(dx,dy);segs.push(len);total+=len;}
+  if(total===0)return pts[0];
+  let d=t*total;
+  for(let i=0;i<segs.length;i++){
+    if(d<=segs[i]||i===segs.length-1){
+      const f=segs[i]===0?0:Math.min(1,d/segs[i]);
+      return [pts[i][0]+(pts[i+1][0]-pts[i][0])*f,pts[i][1]+(pts[i+1][1]-pts[i][1])*f];
+    }
+    d-=segs[i];
+  }
+  return pts[pts.length-1];
+}
+function roadPtsAttr(pts){return pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');}
+function truckState(d){
+  if(d.telemetry_status==='disrupted'||d.status==='disrupted')return 'stopped';
+  if((d.delay_min||0)>0||d.status==='retendered'||d.telemetry_status==='delayed')return 'delayed';
+  if(d.status==='planned')return 'planned';
+  return 'ok';
+}
+function renderMap(deliveries){
+  const stateColor={ok:'#10b981',planned:'#22d3ee',delayed:'#f59e0b',stopped:'#f43f5e'};
+  const s=MAP_STYLE;
+  let out=`<defs><linearGradient id="seaG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0e1f35"/><stop offset="1" stop-color="#0a1728"/></linearGradient></defs>`;
+  out+=`<rect width="${s.w}" height="${s.h}" fill="url(#seaG)"/>`;
+  let grat='';
+  for(let lg=-10;lg<=10;lg+=5){const x=(lg-s.lngMin)/(s.lngMax-s.lngMin)*s.w;grat+=`<line x1="${x.toFixed(1)}" y1="0" x2="${x.toFixed(1)}" y2="${s.h}" stroke="#1b2e49" stroke-width="1"/>`;}
+  for(let lt=35;lt<=50;lt+=5){const y=(s.latMax-lt)/(s.latMax-s.latMin)*s.h;grat+=`<line x1="0" y1="${y.toFixed(1)}" x2="${s.w}" y2="${y.toFixed(1)}" stroke="#1b2e49" stroke-width="1"/>`;}
+  const landStroke='stroke="#4a7bab"';
+  const seaTxt=(lat,lng,t,f)=>{const p=mapLatLng(lat,lng);return `<text x="${p[0].toFixed(1)}" y="${p[1].toFixed(1)}" fill="#5f83ab" font-size="${f||11}" font-style="italic" text-anchor="middle">${t}</text>`;};
+  const landTxt=(lat,lng,t,f,fill)=>{const p=mapLatLng(lat,lng);return `<text x="${p[0].toFixed(1)}" y="${p[1].toFixed(1)}" fill="${fill||'#9db8d6'}" font-size="${f||12}" font-weight="600" text-anchor="middle">${t}</text>`;};
+  out+=grat;
+  out+=`<polygon points="${polyPoints(LAND_AFRICA)}" fill="#122440" ${landStroke} stroke-width="1.2"/>`;
+  out+=`<polygon points="${polyPoints(LAND_FRANCE)}" fill="#17304f" ${landStroke} stroke-width="1.2"/>`;
+  out+=`<polygon points="${polyPoints(LAND_IBERIA)}" fill="#1b3a5e" ${landStroke} stroke-width="1.4"/>`;
+  out+=`<polyline points="${polyPoints(BORDER_PT)}" fill="none" stroke="#6f93b8" stroke-width="1.1" stroke-dasharray="5 4" opacity="0.85"/>`;
+  out+=`<polyline points="${polyPoints(BORDER_PYR)}" fill="none" stroke="#6f93b8" stroke-width="1.1" stroke-dasharray="5 4" opacity="0.85"/>`;
+  out+=seaTxt(-9.9,45.5,'Océano Atlántico',12);
+  out+=seaTxt(5.5,37.2,'Mar Mediterráneo',12);
+  out+=seaTxt(-5.0,44.8,'Mar Cantábrico',10);
+  out+=landTxt(-8.15,39.1,'Portugal',11,'#a9c2dd');
+  out+=landTxt(-3.55,38.9,'España',13,'#c3d6ea');
+  out+=landTxt(2.6,47.3,'Francia',13,'#a9c2dd');
+  out+=landTxt(-5.6,35.0,'Marruecos',10,'#7f9cc0');
+  let roads='';
+  CORRIDORS.forEach(c=>{
+    const pts=c.map(n=>{const p=roadCoords(n);return p?mapLatLng(p[0],p[1]):null;}).filter(Boolean);
+    if(pts.length>1){
+      const attr=roadPtsAttr(pts);
+      roads+=`<polyline points="${attr}" fill="none" stroke="#2c3c52" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>`;
+      roads+=`<polyline points="${attr}" fill="none" stroke="#5a7293" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>`;
+    }
+  });
+  out+=roads;
+  out+=`<text x="16" y="24" fill="#6b84a8" font-size="12">Rutas en vivo · Sudoeste de Europa</text>`;
+  let cities='',seen={};
+  CITY_DISPLAY.forEach((cd)=>{
+    const p=mapXY(cd[0]);
+    if(!p||seen[cd[0]])return;seen[cd[0]]=true;
+    const big=(cd[0]==='madrid');
+    cities+=`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${big?4:3}" fill="#e2e8f0" stroke="#0a0e1a" stroke-width="1.2"/>`;
+    cities+=`<text x="${p[0]+(big?6:5)}" y="${p[1]+(big?4:3)}" fill="#cbd5e1" font-size="${big?12:10}" ${big?'font-weight="700"':''}>${cd[1]}</text>`;
+  });
+  let lines='',trucks='';
+  (deliveries||[]).forEach((d)=>{
+    const pts=roadPixels(cityName(d.origin),cityName(d.destination));
+    if(pts.length<2)return;
+    const st=truckState(d);
+    const c=stateColor[st]||'#6b7280';
+    const attr=roadPtsAttr(pts);
+    lines+=`<polyline points="${attr}" fill="none" stroke="${c}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="8 6" opacity="0.95"><animate attributeName="stroke-dashoffset" from="14" to="0" dur="1.3s" repeatCount="indefinite"/></polyline>`;
+    const pr=Math.min(1,Math.max(0,(d.progress_pct||0)/100));
+    const t=roadPoint(pts,pr);
+    if(st==='stopped'){
+      trucks+=`<circle cx="${t[0].toFixed(1)}" cy="${t[1].toFixed(1)}" r="14" fill="none" stroke="#f43f5e" stroke-width="1.5" opacity="0.5"><animate attributeName="r" values="9;17;9" dur="1.4s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.65;0.12;0.65" dur="1.4s" repeatCount="indefinite"/></circle>`;
+      trucks+=`<circle cx="${t[0].toFixed(1)}" cy="${(t[1]-9).toFixed(1)}" r="4.4" fill="#f43f5e" stroke="#fff" stroke-width="1.2"/><text x="${t[0].toFixed(1)}" y="${(t[1]-7.4).toFixed(1)}" fill="#fff" font-size="7.5" font-weight="700" text-anchor="middle">!</text>`;
+    }else if(st==='delayed'){
+      trucks+=`<circle cx="${t[0].toFixed(1)}" cy="${t[1].toFixed(1)}" r="11" fill="none" stroke="#f59e0b" stroke-width="1.2" opacity="0.55"><animate attributeName="r" values="7;13;7" dur="1s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.55;0.15;0.55" dur="1s" repeatCount="indefinite"/></circle>`;
+    }
+    trucks+=truckSvg(t[0],t[1],c,(st==='stopped'));
+    const label='S-'+((d.shipment_id||d.carrier_id||'').replace(/\D/g,'').slice(-4)||'');
+    trucks+=`<rect x="${(t[0]-12).toFixed(1)}" y="${(t[1]-17).toFixed(1)}" width="24" height="8.5" rx="2" fill="#0a0e1a" opacity="0.92"/>`;
+    trucks+=`<text x="${t[0].toFixed(1)}" y="${(t[1]-10.5).toFixed(1)}" fill="${c}" font-size="6.8" font-weight="700" text-anchor="middle">${label}</text>`;
+  });
+  const legendItems=[
+    ['#5a7293','Carretera principal'],['#10b981','Todo bien'],['#f59e0b','Retrasado'],['#f43f5e','Detenido'],['#22d3ee','Planificado']
+  ];
+  let legend='';
+  legendItems.forEach((it,i)=>{
+    const x=s.w-190,y=15+i*13;
+    legend+=`<line x1="${x}" y1="${y}" x2="${x+14}" y2="${y}" stroke="${it[0]}" stroke-width="3" stroke-dasharray="6 3" opacity="0.9"/><text x="${x+18}" y="${y+4}" fill="#9ca3af" font-size="8.8">${it[1]}</text>`;
+  });
+  let legend2='';
+  const lx=s.w-190, ly=15+5*13;
+  legend2+=`${truckSvg(lx+6,ly,'#10b981',false)}<text x="${lx+18}" y="${ly+3}" fill="#9ca3af" font-size="8.8">Todo bien</text>`;
+  legend2+=`${truckSvg(lx+6,ly+15,'#f59e0b',false)}<text x="${lx+18}" y="${ly+18}" fill="#9ca3af" font-size="8.8">Retrasado</text>`;
+  legend2+=`${truckSvg(lx+6,ly+30,'#f43f5e',true)}<text x="${lx+18}" y="${ly+33}" fill="#9ca3af" font-size="8.8">Detenido</text>`;
+  out+=cities;
+  out+=lines+trucks;
+  out+=legend+legend2;
+  return `<svg viewBox="0 0 ${s.w} ${s.h}" class="w-full h-auto" style="min-height:320px;border-radius:12px;">${out}</svg>`;
+}
+
+/* ==================== MÓDULO 2 ==================== */
+async function loadM2(){
+  const [carriers,deliveries,logs]=await Promise.all([
+    api('/api/routing/carriers'),api('/api/routing/deliveries'),api('/api/routing/logs')
+  ]);
+  render(`
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div class="card p-4 space-y-3">
+      <div class="flex items-center gap-1">
+        <h3 class="font-semibold text-white">Simular incidente</h3>
+        ${tip('Dispara el bucle agéntico autónomo: el sistema detecta un retraso, recalcula el impacto, busca transportistas alternativos, y actualiza el ETA del cliente — todo sin intervención humana.')}
+      </div>
+      <div>
+        <div class="flex items-center gap-1 mb-1"><label class="text-xs muted">Envío</label>${tip('Selecciona un envío activo para simularle un retraso.')}</div>
+        <select id="m2-ship" class="w-full">${deliveries.map(d=>`<option value="${d.shipment_id}">${d.shipment_id} → ${d.destination}</option>`).join('')||'<option>SHIP-1000</option>'}</select>
+      </div>
+      <div>
+        <div class="flex items-center gap-1 mb-1"><label class="text-xs muted">Retraso (minutos)</label>${tip('Minutos de retraso simulados. Más de 60 min puede requerir aprobación humana.')}</div>
+        <input id="m2-delay" type="number" value="45" class="w-full">
+      </div>
+      <div>
+        <div class="flex items-center gap-1 mb-1"><label class="text-xs muted">Causa</label>${tip('Motivo del incidente. Afecta el cálculo del impacto y la prioridad de re-licitación.')}</div>
+        <select id="m2-reason" class="w-full">
+          <option>tormenta en ruta</option><option>accidente vial</option><option>huelga en puerto</option><option>retención aduanera</option>
+        </select>
+      </div>
+      <button class="btn primary w-full font-semibold" onclick="simDisruption()">⚡ Ejecutar bucle agéntico</button>
+      <div class="text-[11px] muted">${tip('El agente autónomo ejecuta 4 pasos: 1) Recalcula impacto. 2) Re-licita a alternativos. 3) Actualiza portal cliente. 4) Registra log.')} Flujo: retraso → recalcular → re-tender → notificar → log.</div>
+    </div>
+    <div class="card p-4 lg:col-span-2">
+      <div class="flex items-center gap-1 mb-2">
+        <h3 class="font-semibold text-white">Registro de eventos del agente</h3>
+        ${tip('Cada incidente detectado y su resolución se registra aquí con trazabilidad completa: qué pasó, qué hizo el agente, y si requirió aprobación humana.')}
+      </div>
+      <div class="scroll text-xs space-y-1" id="m2-logs">
+        ${logs.map(l=>`<div class="flex items-start gap-2 py-2 border-b border-night-700">
+          <span class="chip ${l.severity==='critical'?'red':'amber'}">${l.type}</span>
+          <div><div class="text-gray-300">${l.message}</div>
+          <div class="muted text-[11px] mt-0.5">${(l.created_at||'').slice(0,16).replace('T',' ')}</div></div>
+        </div>`).join('')||'<div class="muted">Sin eventos. Simula un incidente para ver el flujo agéntico en acción.</div>'}
+      </div>
+    </div>
+  </div>
+  <div class="card p-4 mt-4">
+    <div class="flex items-center gap-1 mb-2">
+      <h3 class="font-semibold text-white">Mapa de rutas en vivo</h3>
+      ${tip('Rutas activas dibujadas sobre la Península Ibérica y Europa. Cada camión va sobre su ruta según el % de progreso. Color: verde = todo bien, ámbar = retrasado, rojo = detenido.')}
+    </div>
+    <div id="m2-map">${renderMap(deliveries)}</div>
+  </div>
+  <div class="card p-4 mt-4">
+    <div class="flex items-center gap-1 mb-2">
+      <h3 class="font-semibold text-white">Entregas en seguimiento</h3>
+      ${tip('Estado actual de todos los envíos activos y su seguimiento. Verde = todo bien, ámbar = retrasado, rojo = detenido.')}
+    </div>
+    <div class="scroll">
+      <table><thead><tr><th>Envío</th><th>Transportista</th><th>Destino</th><th>Progreso</th><th>Velocidad</th><th>ETA estimada</th><th>Estado</th><th>Incidente</th></tr></thead>
+      <tbody>${deliveries.map(d=>{
+        const pc=d.progress_pct||0;
+        const barColor=pc<35?'bg-yellow-500':pc<70?'bg-cyan-500':'bg-green-500';
+        const st=truckState(d);
+        const chipColor=st==='stopped'?'red':st==='delayed'?'amber':d.status==='planned'?'cyan':'green';
+        const stLabel=st==='stopped'?'detenido':st==='delayed'?'retrasado':d.status==='planned'?'programado':'todo bien';
+        const inc=st!=='ok'&&st!=='planned'?(`<span class="chip ${st==='stopped'?'red':'amber'}">${d.delay_min>0?d.delay_min+' min · ':''}${d.telemetry_reason||(st==='delayed'?'retraso en ruta':'detenido')}</span>`):'<span class="muted">—</span>';
+        return `<tr>
+        <td class="font-mono">${d.shipment_id}</td>
+        <td>${d.carrier_name||d.carrier_id}</td>
+        <td>${d.destination}</td>
+        <td>
+          <div class="flex items-center gap-2">
+            <div class="w-16 bg-night-700 rounded-full h-2 overflow-hidden"><div class="h-full rounded-full ${barColor}" style="width:${Math.min(100,pc)}%"></div></div>
+            <span class="text-[10px] muted">${Math.round(pc)}%</span>
+          </div>
+        </td>
+        <td class="muted">${d.speed_kmh||0} km/h</td>
+        <td class="text-accent">${(d.current_eta||'').slice(0,16).replace('T',' ')}</td>
+        <td><span class="chip ${chipColor}">${stLabel}</span></td>
+        <td>${inc}</td>
+      </tr>`;}).join('')}</tbody></table>
+    </div>
+  </div>`);
+}
+
+async function simDisruption(){
+  const payload={shipment_id:$('#m2-ship').value,delay_min:parseFloat($('#m2-delay').value||45),reason:$('#m2-reason').value,re_tender:true};
+  const r=await api('/api/routing/simulate-disruption',{method:'POST',body:JSON.stringify(payload)});
+  const tag=r.requires_approval?'<span class="chip amber">🔒 Requiere aprobación (Gobernanza)</span>':'<span class="chip green">✅ Autoejecutado</span>';
+  alert(`Bucle agéntico completado\n\nEnvío: ${r.impact.new_eta.slice(0,16).replace('T',' ')}\nRetraso: ${r.impact.delay_min} min\nImpacto económico: ${r.impact.impact_eur}€\nVentana violada: ${r.impact.window_violated?'Sí':'No'}\n${tag.outerHTML||tag}`);
+  loadTab(); loadKPIs();
+}
+
+/* ==================== MÓDULO 3 ==================== */
+async function loadM3(){
+  const [slot,machines,orders]=await Promise.all([
+    api('/api/wms/slotting'),api('/api/wms/machines'),api('/api/wms/work-orders?status=open')
+  ]);
+  render(`
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="card p-4">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-1">
+          <h3 class="font-semibold text-white">Reubicación de stock (Slotting)</h3>
+          ${tip('Los productos de alta rotación se mueven cerca del muelle de salida para reducir tiempos de picking. El sistema sugiere movimientos automáticamente.')}
+        </div>
+        <button class="btn primary text-xs" onclick="applySlotting()">Aplicar</button>
+      </div>
+      <div class="scroll text-xs space-y-1" id="m3-slot">
+        ${slot.suggested_moves.map(m=>`<div class="flex items-center gap-2 py-1 border-b border-night-700">
+          <span class="chip cyan">${m.sku.replace('SKU-','')}</span>
+          <span class="text-gray-300 truncate">${m.name}</span>
+          <span class="muted">${m.from_zone}</span>
+          <span class="text-good">→ ${m.to_zone}</span>
+        </div>`).join('')||'<div class="muted">Sin movimientos sugeridos — distribución óptima actual.</div>'}
+        <div id="m3-slot-status" class="text-[11px] mt-2 muted"></div>
+      </div>
+    </div>
+    <div class="card p-4">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-1">
+          <h3 class="font-semibold text-white">Mantenimiento Predictivo</h3>
+          ${tip('Sensores IoT monitorean vibración y temperatura. Si un valor se desvía >3σ del comportamiento normal, se genera una orden de trabajo ANTES de que la máquina falle.')}
+        </div>
+        <button class="btn primary text-xs" onclick="simTelemetry()">▶ Simular</button>
+      </div>
+      <div class="scroll text-xs space-y-1">
+        ${machines.map(m=>`<div class="flex items-center justify-between py-1 border-b border-night-700">
+          <span>${m.name}</span>
+          <span class="chip ${m.degraded?'amber':'green'}">${m.degraded?'degradándose':'normal'}</span>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>
+  <div class="card p-4 mt-4">
+    <div class="flex items-center gap-1 mb-2">
+      <h3 class="font-semibold text-white">Trabajos pendientes</h3>
+      ${tip('Mantenciones de la flota de camiones programadas por kilometraje (con su fecha) y órdenes predictivas del sensor IoT que detectan el fallo antes de la parada real.')}
+    </div>
+    <div class="scroll">
+      <table><thead><tr><th>#</th><th>Vehículo</th><th>Tipo</th><th>Prioridad</th><th>Descripción</th><th>Fecha</th><th>Estado</th></tr></thead>
+      <tbody>${orders.map(o=>`<tr>
+        <td>${o.id}</td>
+        <td class="font-mono">${o.machine_id}</td>
+        <td><span class="chip ${o.type==='fleet'?'amber':o.type==='predictive'?'cyan':'red'}">${o.type==='fleet'?'mant. camión':o.type==='predictive'?'predictiva':'correctiva'}</span></td>
+        <td><span class="chip ${o.priority==='high'?'red':'amber'}">${o.priority==='high'?'alta':'media'}</span></td>
+        <td class="muted text-xs">${o.description}</td>
+        <td class="muted whitespace-nowrap">${(o.created_at||'').slice(0,10)}</td>
+        <td><span class="chip ${o.status==='open'?'amber':'green'}">${o.status==='open'?'pendiente':'completada'}</span></td>
+      </tr>`).join('')||'<tr><td colspan=7 class="muted text-xs">Sin órdenes. Pulsa "Simular" para generar telemetría IoT.</td></tr>'}</tbody></table>
+    </div>
+  </div>`);
+}
+
+async function simTelemetry(){
+  const r=await api('/api/wms/telemetry/simulate',{method:'POST'});
+  const msg=r.anomalies_detected>0
+    ?`${r.records} muestras · ${r.anomalies_detected} anomalías detectadas → órdenes de trabajo generadas`
+    :`${r.records} muestras procesadas · Sin anomalías esta vez`;
+  alert('Telemetría IoT\n\n'+msg);
+  loadTab(); loadKPIs();
+}
+
+async function applySlotting(){
+  const slot=await api('/api/wms/slotting');
+  if(slot.suggested_moves.length){
+    const r=await api('/api/wms/slotting/apply',{method:'POST',body:JSON.stringify({moves:slot.suggested_moves,region_id:slot.region_id})});
+    $('#m3-slot-status').textContent=`✅ ${r.moves_applied} movimientos aplicados hacia el muelle`;
+  }else $('#m3-slot-status').textContent='Sin movimientos necesarios.';
+}
+
+/* ==================== MÓDULO 4 ==================== */
+async function loadM4(){
+  const scores=await api('/api/suppliers/scores');
+  render(`
+  <div class="card p-4 mb-4">
+    <div class="flex items-center gap-1 mb-3">
+      <h3 class="font-semibold text-white">Evaluación de Riesgo de Proveedores</h3>
+      ${tip('Cada proveedor obtiene un score 0-100: 50% cumpleimiento (OTIF), 30% estabilidad financiera, 20% riesgo geopolítico de su país/fábrica. Score bajo = alto riesgo.')}
+    </div>
+    <div class="scroll">
+      <table><thead><tr><th>Proveedor</th><th>Material</th><th>País</th><th>Score</th><th>Nivel</th><th></th></tr></thead>
+      <tbody>${scores.map(s=>`<tr>
+        <td class="font-medium">${s.name}</td>
+        <td>${s.material}</td>
+        <td>${s.country}</td>
+        <td>
+          <div class="flex items-center gap-2">
+            <div class="w-24 bg-night-700 rounded-full h-2.5 overflow-hidden">
+              <div class="h-full rounded-full stock-bar" style="width:${s.score}%;background:${s.score<30?'#f43f5e':s.score<60?'#f59e0b':'#10b981'}"></div>
+            </div>
+            <span class="text-xs muted">${s.score}</span>
+          </div>
+        </td>
+        <td><span class="chip ${s.score<30?'red':s.score<60?'amber':'green'}">${s.risk_level}</span></td>
+        <td><button class="btn text-xs" onclick="showAlt('${s.supplier_id}','${s.name.replace(/'/g,"\\'")}')">ver alternativas</button></td>
+      </tr>`).join('')}</tbody></table>
+    </div>
+  </div>
+  <div id="m4-alt"></div>`);
+}
+
+async function showAlt(id,name){
+  const r=await api(`/api/suppliers/alternatives/${id}`);
+  $('#m4-alt').innerHTML=`
+    <div class="card p-4">
+      <div class="flex items-center gap-2 mb-3">
+        <h3 class="font-semibold text-white">Alternativas · ${name}</h3>
+        ${r.critical?'<span class="chip red">Score crítico</span>':''}
+        ${r.requires_approval?'<span class="chip amber">🔒 cambio requiere aprobación</span>':''}
+      </div>
+      <div class="grid md:grid-cols-3 gap-3">${r.alternatives.map(a=>`
+        <div class="bg-night-700 rounded-lg p-3">
+          <div class="font-semibold text-sm">${a.name}</div>
+          <div class="text-xs muted">${a.country} · ${a.material}</div>
+          <div class="mt-2"><span class="chip ${a.score<60?'amber':'green'}">score ${a.score}</span></div>
+          <div class="text-xs mt-1 muted">Coste: ${a.unit_cost}€ (${a.cost_vs_current_pct>0?'+':''}${a.cost_vs_current_pct}%) vs actual</div>
+          <div class="text-[11px] muted mt-0.5">${a.geo_risk_label}</div>
+        </div>`).join('')||'<div class="muted text-xs">Sin alternativas disponibles para este material.</div>'}</div>
+    </div>`;
+}
+
+/* ==================== MÓDULO 5 ==================== */
+const traceStatus={
+  auto_executed:['🤖 Auto-ejecutada','green'],
+  requires_approval:['⏳ Pendiente tuya','amber'],
+  pending:['⏳ En proceso','amber'],
+  approved:['👍 Aprobada','cyan'],
+  rejected:['✕ Rechazada','red']
+};
+async function loadM5(){
+  const [matrix,pending,trace,roles]=await Promise.all([
+    api('/api/governance/matrix'),api('/api/governance/pending'),
+    api('/api/governance/trace'),api('/api/governance/roles')
+  ]);
+  $('#role-badge').textContent=roles.current_role.replace('_',' ');
+  render(`
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="card p-4">
+      <div class="flex items-center gap-1 mb-3">
+        <h3 class="font-semibold text-white">Matriz de decisiones</h3>
+        ${tip('Define qué puede decidir la IA sola (auto) y qué necesita tu aprobación (humano). Las decisiones de alto coste o contractual siempre requieren tu OK.')}
+      </div>
+      <div class="scroll text-xs space-y-2">
+        ${matrix.map(r=>`<div class="bg-night-700 rounded-lg p-3">
+          <div class="flex items-center justify-between"><span class="font-semibold text-gray-200">${r.decision}</span><span class="chip cyan">${r.rule_id}</span></div>
+          <div class="muted mt-1">🤖 Auto: ${r.auto_threshold}</div>
+          <div class="text-warn mt-0.5">👤 Tú apruebas: ${r.requires_approval_when}</div>
+          <div class="muted mt-0.5 text-[11px]">Responsable: ${r.owner}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+    <div class="card p-4">
+      <div class="flex items-center gap-1 mb-3">
+        <h3 class="font-semibold text-white">Sugerencias de la IA</h3>
+        ${tip('Cada sugerencia muestra su razonamiento (factores), el impacto económico estimado y la confianza del modelo. Si requiere aprobación humana puedes aprobarla o rechazarla aquí mismo.')}
+        ${pending.length?'<span class="chip amber ml-1">'+pending.length+' pendientes</span>':''}
+      </div>
+      <div class="scroll text-xs space-y-2" id="m5-pending">
+        ${trace.map(p=>{
+          const sm=traceStatus[p.status]||['',''];
+          return `<div class="bg-night-700 rounded-lg p-3">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-gray-200 font-medium">${p.description}</span>
+              <span class="chip ${sm[1]} shrink-0">${sm[0]}</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 mt-1.5 text-[11px] muted">
+              <span class="chip cyan">${p.module}</span>
+              <span>Impacto: <b class="text-warn">${p.impact_eur}€</b></span>
+              <span>Confianza: <b>${(p.confidence*100).toFixed(0)}%</b></span>
+              <span class="text-[10px]">${(p.created_at||'').slice(0,16).replace('T',' ')}</span>
+            </div>
+            ${Object.keys(p.factors||{}).length?`<div class="text-[10px] muted mt-1">Razón: ${Object.entries(p.factors).slice(0,3).map(([k,v])=>`${k}=${v}`).join(' · ')}</div>`:''}
+            ${p.status==='requires_approval'?`<div class="mt-2 flex gap-2">
+              <button class="btn primary text-xs" onclick="decide(${p.id},'approve')">✓ Aprobar</button>
+              <button class="btn crit text-xs" onclick="decide(${p.id},'reject')">✕ Rechazar</button>
+            </div>`:''}
+          </div>`;
+        }).join('')||'<div class="muted">Sin sugerencias todavía. Ejecuta la demo para que la IA genere recomendaciones.</div>'}
+      </div>
+    </div>
+  </div>
+  <div class="card p-4 mt-4">
+    <div class="flex items-center gap-1 mb-2">
+      <h3 class="font-semibold text-white">Trazabilidad de decisiones</h3>
+      ${tip('Cada acción de la IA queda registrada con explicabilidad: qué datos usó, qué factores pesaron más, y su nivel de confianza. Esto evita "alucinaciones" de la IA.')}
+    </div>
+    <div class="scroll">
+      <table><thead><tr><th>#</th><th>Módulo</th><th>Acción</th><th>Impacto</th><th>Confianza</th><th>Estado</th><th>Factores</th></tr></thead>
+      <tbody>${trace.map(t=>`<tr>
+        <td>${t.id}</td>
+        <td><span class="chip cyan">${t.module}</span></td>
+        <td class="text-gray-200">${t.action}</td>
+        <td class="text-warn">${t.impact_eur}€</td>
+        <td>${(t.confidence*100).toFixed(0)}%</td>
+        <td><span class="chip ${t.status==='approved'?'green':t.status==='requires_approval'?'amber':'red'}">${t.status==='approved'?'aprobado':t.status==='auto_executed'?'auto-ej.':t.status==='rejected'?'rechazado':'pendiente'}</span></td>
+        <td class="muted text-[11px] max-w-[180px] truncate" title='${JSON.stringify(t.factors||{}).replace(/'/g,"\\'")}'>${Object.entries(t.factors||{}).slice(0,2).map(([k,v])=>`${k}=${typeof v==='number'?v.toFixed?Number(v.toFixed(2)):v:v}`).join(' · ')}</td>
+      </tr>`).join('')}</tbody></table>
+    </div>
+  </div>`);
+}
+
+async function decide(id,action){
+  await api(`/api/governance/${action}/${id}`,{method:'POST',body:JSON.stringify({})});
+  loadTab(); loadKPIs();
+}
+
+/* ---- master ---- */
+async function loadTab(){
+  loadKPIs();
+  try{
+    if(currentTab==='m1')await loadM1();
+    else if(currentTab==='m2')await loadM2();
+    else if(currentTab==='m3')await loadM3();
+    else if(currentTab==='m4')await loadM4();
+    else if(currentTab==='m5')await loadM5();
+  }catch(e){ render(`<div class="card p-8 text-center text-crit">Error: ${e.message}</div>`); }
+}
+
+async function runAllDemos(){
+  const btn=$('button[onclick="runAllDemos()"]');
+  if(!btn)return;
+  btn.textContent='Ejecutando…';btn.disabled=true;
+  try{
+    await api('/api/wms/telemetry/simulate',{method:'POST'});
+    await new Promise(r=>setTimeout(r,300));
+    const deliveries=await api('/api/routing/deliveries');
+    const live=deliveries.find(d=>d.status==='in_transit');
+    if(live)await api('/api/routing/simulate-disruption',{method:'POST',body:JSON.stringify({shipment_id:live.shipment_id,delay_min:40,reason:'retención aduanera',re_tender:true})});
+    await loadTab();await loadKPIs();
+    setTimeout(()=>switchTab('m5'),400);
+  }catch(e){alert('Demo: '+e.message);}
+  btn.textContent='▶ Demo autónoma';btn.disabled=false;
+}
+
+/* ---- Boot: esperar a que la base de datos esté lista ---- */
+async function boot(){
+  $('#content').innerHTML=`
+    <div class="flex flex-col items-center justify-center py-24 gap-4">
+      <div class="w-12 h-12 border-4 border-accent/30 border-t-accent rounded-full animate-spin"></div>
+      <div class="text-sm muted">Inicializando motor de previsión, WMS y agentes…</div>
+      <div class="text-[11px] muted">Primera carga: preparando datos semilla</div>
+    </div>`;
+  for(let i=0;i<60;i++){
+    try{
+      const h=await api('/api/health');
+      if(h.db_ready){
+        const target=location.hash.replace('#','');
+        if(['m1','m2','m3','m4','m5'].includes(target))switchTab(target);
+        else loadTab();
+        setInterval(loadKPIs,20000);
+        setInterval(()=>{ if(currentTab==='m2')loadM2(); },8000);
+        setInterval(()=>{ if(currentTab==='m3')loadM3(); },15000);
+        return;
+      }
+    }catch(e){}
+    await new Promise(r=>setTimeout(r,500));
+  }
+  $('#content').innerHTML=`<div class="card p-8 text-center text-crit">El servidor tarda demasiado. ¿Está corriendo?</div>`;
+}
+boot();
+</script>
+</body>
+</html>

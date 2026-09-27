@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+venv/
+.venv/
+
+# Entorno
+.env
+
+# Datos locales generados en tiempo de ejecución
+data/
+*.spec
+
+# Builds / artefactos
+build/
+dist/
+downloads/
+
+# Logs
+*.log
+scm.log
