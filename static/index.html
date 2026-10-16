@@ -1,0 +1,3610 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SCM Platform · Predictive &amp; Agentic</title>
+<link rel="stylesheet" href="/static/lib/leaflet.css">
+<script src="/static/lib/tailwind.js"></script>
+<script src="/static/lib/chart.umd.min.js"></script>
+<script src="/static/lib/leaflet.js"></script>
+<script>
+tailwind.config={theme:{extend:{colors:{
+  night:{900:'#0a0e1a',800:'#111827',700:'#1a2235',600:'#243047'},
+  accent:'#22d3ee',warn:'#f59e0b',crit:'#f43f5e',good:'#10b981'
+}}}};
+</script>
+<style>
+body{font-family:'Inter',system-ui,sans-serif;}
+.tab-active{border-bottom:3px solid #22d3ee;color:#22d3ee;font-weight:600;}
+.card{background:#111827;border:1px solid #243047;border-radius:0.75rem;}
+.muted{color:#9ca3af;}
+.chip{display:inline-block;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:600;}
+.chip.green{background:#10b98122;color:#10b981;}
+.chip.red{background:#f43f5e22;color:#f43f5e;}
+.chip.amber{background:#f59e0b22;color:#f59e0b;}
+.chip.cyan{background:#22d3ee22;color:#22d3ee;}
+.chip.blue{background:#3b82f622;color:#3b82f6;}
+.btn{border:1px solid #243047;border-radius:0.5rem;padding:6px 12px;font-size:13px;transition:all .15s;}
+.btn:hover{background:#1a2235;}
+.btn.primary{background:#22d3ee22;border-color:#22d3ee55;color:#22d3ee;}
+.btn.primary:hover{background:#22d3ee33;}
+.btn.crit{background:#f43f5e22;border-color:#f43f5e55;color:#f43f5e;}
+input,select,textarea{background:#0a0e1a;border:1px solid #243047;border-radius:0.5rem;padding:6px 10px;font-size:13px;color:#e5e7eb;}
+input:focus,select:focus,textarea:focus{outline:none;border-color:#22d3ee88;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{text-align:left;color:#9ca3af;font-weight:500;padding:8px;border-bottom:1px solid #243047;}
+td{padding:8px;border-bottom:1px solid #1a2235;}
+tr:hover{background:#1a223544;}
+.scroll{max-height:500px;overflow-y:auto;}
+::-webkit-scrollbar{width:8px;height:8px;}
+::-webkit-scrollbar-thumb{background:#243047;border-radius:8px;}
+::-webkit-scrollbar-track{background:transparent;}
+
+/* Tooltip informativo */
+.tip{position:relative;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#243047;color:#6b7280;font-size:10px;font-weight:700;cursor:help;flex-shrink:0;margin-left:4px;}
+.tip:hover{background:#22d3ee33;color:#22d3ee;}
+.tip .tip-text{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1a2235;border:1px solid #243047;border-radius:0.5rem;padding:8px 12px;font-size:11px;font-weight:400;line-height:1.5;white-space:nowrap;color:#d1d5db;z-index:50;min-width:200px;max-width:320px;white-space:normal;pointer-events:none;box-shadow:0 4px 20px #00000066;}
+.tip:hover .tip-text{display:block;}
+
+/* stock bar animation */
+.stock-bar{transition:width 0.5s ease;}
+
+/* Google Maps Leaflet Styles */
+.leaflet-container{font-family:'Inter',system-ui,sans-serif;background:#e5e3df;border-radius:0.75rem;}
+.leaflet-popup-content-wrapper{background:#111827;color:#f3f4f6;border-radius:0.75rem;padding:0;overflow:hidden;border:1px solid #243047;box-shadow:0 10px 25px -5px rgba(0,0,0,0.5);}
+.leaflet-popup-content{margin:0;line-height:1.4;}
+.leaflet-popup-tip{background:#111827;}
+.gmap-marker-container{background:transparent;border:none;}
+
+/* Pulsos animados estilo radar para Google Maps */
+@keyframes gmap-pulse-red{0%{transform:scale(0.8);opacity:0.9;}50%{transform:scale(1.5);opacity:0.2;}100%{transform:scale(0.8);opacity:0.9;}}
+@keyframes gmap-pulse-amber{0%{transform:scale(0.8);opacity:0.9;}50%{transform:scale(1.3);opacity:0.3;}100%{transform:scale(0.8);opacity:0.9;}}
+@keyframes gmap-pulse-green{0%{transform:scale(0.8);opacity:0.8;}50%{transform:scale(1.2);opacity:0.2;}100%{transform:scale(0.8);opacity:0.8;}}
+.pulse-ring-red{animation:gmap-pulse-red 1.4s infinite ease-out;}
+.pulse-ring-amber{animation:gmap-pulse-amber 1.8s infinite ease-out;}
+.pulse-ring-green{animation:gmap-pulse-green 2.2s infinite ease-out;}
+
+/* Controles flotantes estilo Google Maps */
+.gmap-chip{background:#111827dd;border:1px solid #243047;color:#d1d5db;backdrop-filter:blur(4px);padding:4px 10px;border-radius:9999px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;}
+.gmap-chip:hover{background:#1a2235;color:#ffffff;}
+.gmap-chip.active{background:#22d3ee;color:#0a0e1a;border-color:#22d3ee;}
+
+/* Drag & Drop Zone and Modern UI accents */
+.drop-zone{border:2px dashed #243047;background:rgba(17,24,39,0.7);transition:all 0.2s ease-in-out;border-radius:0.75rem;}
+.drop-zone:hover, .drop-zone.dragover{border-color:#22d3ee;background:rgba(34,211,238,0.06);transform:translateY(-1px);}
+.tab-pill{transition:all 0.15s ease;}
+.tab-pill.active{background:#22d3ee22;color:#22d3ee;border-color:#22d3ee88;font-weight:600;}
+.card-header-gradient{background:linear-gradient(180deg, rgba(34,211,238,0.04) 0%, transparent 100%);}
+</style>
+</head>
+<body class="bg-night-900 text-gray-200 min-h-screen">
+<div class="max-w-7xl mx-auto p-4">
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="fixed top-4 right-4 z-[9999] flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
+
+  <!-- Header -->
+  <header class="flex items-center justify-between py-3 border-b border-night-600 mb-4 flex-wrap gap-2">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-lg bg-accent/20 flex items-center justify-center text-accent font-black">SC</div>
+      <div>
+        <h1 class="text-lg font-bold text-white leading-tight">Supply Chain Command Center</h1>
+        <p class="text-xs muted">Gestión predictiva y automatización agéntica</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3 flex-wrap">
+      <div class="flex items-center gap-1.5 bg-night-800 border border-night-600 rounded-lg px-2 py-1">
+        <span class="text-[11px] muted">Rol:</span>
+        <select id="role-select" onchange="switchUserRole(this.value)" class="bg-transparent border-0 text-xs font-semibold text-accent py-0 px-1 cursor-pointer focus:outline-none">
+          <option value="logistics_manager">Logistics Manager (Autoriza)</option>
+          <option value="supply_planner">Supply Planner (Autoriza)</option>
+          <option value="ops_agent">Ops Agent (Operador)</option>
+          <option value="analyst">Analyst (Lectura)</option>
+          <option value="auditor">Auditor (Lectura)</option>
+        </select>
+        <span id="role-badge" class="chip cyan hidden">Logistics Manager</span>
+      </div>
+      <button onclick="runAllDemos()" class="btn primary text-sm font-semibold">▶ Demo autónoma</button>
+      <span id="health" class="chip green">● Online</span>
+    </div>
+  </header>
+
+  <!-- KPIs -->
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4" id="kpis"></div>
+
+  <!-- Tabs -->
+  <nav class="flex gap-4 flex-wrap border-b border-night-600 mb-4 text-sm">
+    <button class="tab tab-active pb-2" data-tab="m1">1 · Previsión</button>
+    <button class="tab pb-2 muted hover:text-white" data-tab="m2">2 · Rutas &amp; Agente</button>
+    <button class="tab pb-2 muted hover:text-white" data-tab="m3">3 · Almacén</button>
+    <button class="tab pb-2 muted hover:text-white" data-tab="m4">4 · Proveedores</button>
+    <button class="tab pb-2 muted hover:text-white" data-tab="m5">5 · Gobernanza</button>
+    <button class="tab pb-2 muted hover:text-white" data-tab="stock">6 · Cargar Stock</button>
+    <button class="tab pb-2 muted hover:text-white" data-tab="sales">7 · Registro de Ventas</button>
+    <button class="tab pb-2 text-emerald-400 hover:text-emerald-300 font-semibold" data-tab="logistics">8 · Dataset BD Logística (4.282)</button>
+    <button class="tab pb-2 text-cyan-400 hover:text-cyan-300 font-semibold" data-tab="findings">9 · Macro-Dataset iFood (153.604)</button>
+    <button class="tab pb-2 text-purple-400 hover:text-purple-300 font-semibold" data-tab="testing">10 · Protocolo &amp; Testeo C2</button>
+  </nav>
+
+  <!-- CONTENIDO: se rellena por JS, el canvas vive aquí fuera para no morir -->
+  <div id="content"></div>
+  <div id="loading" class="text-center muted py-10">Cargando plataforma…</div>
+</div>
+
+<script>
+const API='';
+let demandChart=null;
+let currentTab='m1';
+
+const $=sel=>document.querySelector(sel);
+const $$=sel=>document.querySelectorAll(sel);
+
+function showToast(title, message='', type='info'){
+  const cont=$('#toast-container');
+  if(!cont)return;
+  const colors={
+    success:'border-emerald-500/60 bg-night-800/95 text-emerald-300',
+    warn:'border-amber-500/60 bg-night-800/95 text-amber-300',
+    error:'border-rose-500/60 bg-night-800/95 text-rose-300',
+    info:'border-cyan-500/60 bg-night-800/95 text-cyan-300'
+  };
+  const icons={success:'✅',warn:'⚠️',error:'❌',info:'⚡'};
+  const el=document.createElement('div');
+  el.className=`pointer-events-auto border-l-4 rounded-lg p-3 shadow-2xl backdrop-blur transition-all duration-300 ${colors[type]||colors.info}`;
+  el.innerHTML=`
+    <div class="flex items-start justify-between gap-2">
+      <div class="flex items-start gap-2">
+        <span class="text-sm">${icons[type]||icons.info}</span>
+        <div>
+          <div class="text-xs font-bold text-white">${title}</div>
+          ${message?`<div class="text-[11px] text-gray-300 mt-0.5 whitespace-pre-line">${message}</div>`:''}
+        </div>
+      </div>
+      <button onclick="this.closest('div.pointer-events-auto').remove()" class="text-gray-400 hover:text-white text-xs">✕</button>
+    </div>`;
+  cont.appendChild(el);
+  setTimeout(()=>{ if(el.parentNode)el.remove(); }, 5000);
+}
+
+async function switchUserRole(role){
+  try{
+    const r=await api('/api/governance/role',{method:'POST',body:JSON.stringify({role})});
+    const badge=$('#role-badge');
+    if(badge)badge.textContent=r.current_role.replace('_',' ');
+    showToast('Rol activo actualizado', `Ahora operas como "${r.current_role.replace('_',' ')}" (${r.can_authorize?'Con permisos HITL':'Solo lectura / Sin firma HITL'})`, r.can_authorize?'success':'warn');
+    if(currentTab==='m5')loadM5();
+  }catch(e){
+    showToast('Error cambiando rol', e.message, 'error');
+  }
+}
+
+async function api(path,opts={}){
+  const ctrl=new AbortController();
+  const t=setTimeout(()=>ctrl.abort(),15000);
+  try{
+    const r=await fetch(API+path,{headers:{'Content-Type':'application/json'},signal:ctrl.signal,...opts});
+    if(!r.ok){
+      let detail=await r.text();
+      try{ const j=JSON.parse(detail); detail=j.detail||detail; }catch(_){}
+      throw new Error(detail);
+    }
+    return r.json();
+  }finally{clearTimeout(t);}
+}
+
+/* ---- Tooltip helper ---- */
+function tip(text){ return `<span class="tip">?<span class="tip-text">${text}</span></span>`; }
+
+/* ---- Tabs ---- */
+document.querySelectorAll('.tab').forEach(b=>{
+  b.addEventListener('click',()=>switchTab(b.dataset.tab));
+});
+function switchTab(tab){
+  currentTab=tab;
+  $$('.tab').forEach(b=>{
+    const on=b.dataset.tab===tab;
+    b.classList.toggle('tab-active',on);
+    b.classList.toggle('muted',!on);
+  });
+  loadTab();
+}
+function render(contentHTML){ $('#content').innerHTML=contentHTML; const l=$('#loading'); if(l)l.style.display='none'; }
+
+/* ---- KPIs ---- */
+async function loadKPIs(){
+  try{
+
+    const d=await api('/api/dashboard');
+    $('#kpis').innerHTML=`
+      <div class="card p-3">
+        <div class="text-xs muted">Reducción error previsión ${tip('Comparación del modelo predictivo vs un método naive (repetir el último valor). Objetivo McKinsey: reducir errores 20-50%.')}</div>
+        <div class="text-2xl font-bold text-good">${d.forecast_improvement.avg_error_reduction_pct??'—'}%</div>
+        <div class="text-[11px] muted">vs baseline naive</div>
+      </div>
+      <div class="card p-3">
+        <div class="text-xs muted">Proveedores en riesgo ${tip('Proveedores con score de riesgo < 60 (sobre 100). Evalúa OTIF + estabilidad financiera + riesgo geopolítico.')}</div>
+        <div class="text-2xl font-bold text-warn">${d.supplier_risk.length}</div>
+        <div class="text-[11px] muted">score &lt; 60</div>
+      </div>
+      <div class="card p-3">
+        <div class="text-xs muted">Pendientes aprobación ${tip('Decisiones de la IA que requieren tu autorización antes de ejecutarse (coste alto, contractual, legal).')}</div>
+        <div class="text-2xl font-bold text-crit">${d.pending_approvals}</div>
+        <div class="text-[11px] muted"><a class="text-accent cursor-pointer" onclick="switchTab('m5')">ver gobernanza →</a></div>
+      </div>
+      <div class="card p-3">
+        <div class="text-xs muted">Trabajos abiertos ${tip('Órdenes de mantenimiento predictivo generadas automáticamente antes de que la maquinaria falle.')}</div>
+        <div class="text-2xl font-bold text-warn">${d.open_work_orders}</div>
+        <div class="text-[11px] muted">mantenimiento IoT</div>
+      </div>
+      <div class="card p-3">
+        <div class="text-xs muted">Entregas activas ${tip('Envíos en tránsito o planificados que el agente autónomo monitoriza en tiempo real.')}</div>
+        <div class="text-2xl font-bold text-accent">${d.active_deliveries}</div>
+        <div class="text-[11px] muted">${d.alerts_open} alertas</div>
+      </div>`;
+  }catch(e){ console.error(e); }
+}
+
+/* ==================== MÓDULO 1 ==================== */
+async function loadM1(){
+  const [skus,regions,improvement]=await Promise.all([
+    api('/api/demand/skus'),api('/api/demand/regions'),api('/api/demand/improvement')
+  ]);
+  render(`
+  <!-- Panel de control + gráfico (lado a lado) -->
+  <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+    <!-- CONTROLES -->
+    <div class="card p-4 space-y-3">
+      <div class="flex items-center gap-1">
+        <h3 class="font-semibold text-white">Configurar previsión</h3>
+        ${tip('Selecciona un producto y región. El modelo ML usa datos históricos + clima + promociones para predecir la demanda futura.')}
+      </div>
+
+      <div>
+        <div class="flex items-center gap-1 mb-1">
+          <label class="text-xs muted">Producto</label>
+          ${tip('Elige el SKU cuya demanda quieres predecir. Cada producto tiene un patrón de demanda distinto.')}
+        </div>
+        <select id="m1-sku" onchange="runForecast()" class="w-full">${skus.map(s=>`<option value="${s.sku}">${s.name}</option>`).join('')}</select>
+      </div>
+
+      <div>
+        <div class="flex items-center gap-1 mb-1">
+          <label class="text-xs muted">Región</label>
+          ${tip('La ubicación geográfica afecta el clima, las promociones locales y el inventario disponible.')}
+        </div>
+        <select id="m1-region" onchange="runForecast()" class="w-full">${regions.map(r=>`<option value="${r.region_id}">${r.name}</option>`).join('')}</select>
+      </div>
+
+      <div>
+        <div class="flex items-center gap-1 mb-1">
+          <label class="text-xs muted">Horizonte de previsión</label>
+          ${tip('Número de días futuros que se predicen. 14 días es típico para planificación semanal.')}
+        </div>
+        <div class="flex gap-2">
+          <button class="btn text-xs" onclick="setHorizon(14)" id="h14">14d</button>
+          <button class="btn primary text-xs" onclick="setHorizon(30)" id="h30">30d</button>
+          <button class="btn text-xs" onclick="setHorizon(60)" id="h60">60d</button>
+        </div>
+        <input id="m1-horizon" type="hidden" value="30">
+      </div>
+
+      <hr class="border-night-600">
+
+      <!-- Subida de archivo -->
+      <div>
+        <div class="flex items-center gap-1 mb-1">
+          <label class="text-xs muted">Subir histórico ERP</label>
+          ${tip('Importa ventas históricas en CSV (columnas: date, sku, region_id, units) o JSON. Esto enriquece el entrenamiento del modelo.')}
+        </div>
+        <input id="m1-file" type="file" accept=".csv,.json" class="text-xs w-full">
+        <button class="btn w-full mt-2 text-xs" onclick="uploadSales()">Subir archivo</button>
+      </div>
+    </div>
+
+    <!-- GRÁFICO -->
+    <div class="card p-4 lg:col-span-3">
+      <div class="flex justify-between items-center mb-2">
+        <div class="flex items-center gap-1">
+          <h3 class="font-semibold text-white">Demanda predicha vs real</h3>
+          ${tip('La línea cian es la predicción del modelo. El sombreado es el intervalo de confianza al 95%. Si hay datos reales recientes, aparecen en verde.')}
+        </div>
+        <span class="text-xs muted">Modelo: Holt-Winters + promos + clima</span>
+      </div>
+      <!-- Canvas: SE MANTIENE estático, no se recrea con innerHTML -->
+      <div style="height:320px"><canvas id="demandChart"></canvas></div>
+      <div id="m1-improvement" class="grid grid-cols-3 gap-3 mt-4"></div>
+    </div>
+  </div>
+
+  <!-- Stock + Alertas -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+    <div class="card p-4">
+      <div class="flex items-center gap-1 mb-3">
+        <h3 class="font-semibold text-white">Stock actual en almacén</h3>
+        ${tip('Nivel actual de inventario por producto y región. La barra muestra llenado relativo: si queda poco (rojo), hay riesgo de rotura.')}
+      </div>
+      <div class="scroll" id="m1-stock"></div>
+    </div>
+    <div class="card p-4">
+      <div class="flex items-center gap-1 mb-3">
+        <h3 class="font-semibold text-white">Alertas de inventario</h3>
+        ${tip('El sistema detecta automáticamente: ROTURA = stock insuficiente para la demanda proyectada, EXCESO = demasiado inventario sin demanda.')}
+      </div>
+      <div id="m1-alerts" class="scroll text-xs muted">Genera una previsión para activar alertas.</div>
+    </div>
+  </div>`);
+
+  $('#m1-improvement').innerHTML=`
+    <div class="bg-night-700 rounded-lg p-3 text-center">
+      <div class="text-xs muted">Error modelo (MAPE)</div>
+      <div class="text-xl font-bold text-accent">${improvement.avg_model_mape??'—'}%</div>
+    </div>
+    <div class="bg-night-700 rounded-lg p-3 text-center">
+      <div class="text-xs muted">Error naive</div>
+      <div class="text-xl font-bold text-gray-400">${improvement.avg_naive_mape??'—'}%</div>
+    </div>
+    <div class="bg-night-700 rounded-lg p-3 text-center">
+      <div class="text-xs muted">Mejora</div>
+      <div class="text-xl font-bold ${improvement.meets_mckinsey_20_50?'text-good':'text-warn'}">${improvement.avg_error_reduction_pct??'—'}%</div>
+      <div class="text-[10px] muted">obj. 20-50%</div>
+    </div>`;
+
+  await runForecast();
+  await loadStock();
+}
+
+function setHorizon(d){
+  $('#m1-horizon').value=d;
+  [14,30,60].forEach(h=>{
+    const b=$('#h'+h);
+    if(b){ b.classList.remove('primary'); if(h===d)b.classList.add('primary'); }
+  });
+  runForecast();
+}
+
+async function runForecast(){
+  if(!$('#m1-sku'))return;
+  const sku=$('#m1-sku').value,region=$('#m1-region').value,horizon=$('#m1-horizon').value;
+  const res=await api('/api/demand/forecast',{method:'POST',body:JSON.stringify({sku,region_id:region,horizon_days:parseInt(horizon)||30})});
+  renderDemandChart(res);
+  loadStock(); // refresca stock de la región seleccionada
+  // Métricas del modelo PARA ESTE SKU/REGIÓN (no medias globales)
+  const imp=$('#m1-improvement');
+  if(imp){
+    const meets=res.mape_improvement_pct!=null&&res.mape_improvement_pct>=20&&res.mape_improvement_pct<=50;
+    imp.innerHTML=`
+      <div class="bg-night-700 rounded-lg p-3 text-center">
+        <div class="text-xs muted">Error modelo (MAPE)</div>
+        <div class="text-xl font-bold text-accent">${res.mape??'—'}%</div>
+      </div>
+      <div class="bg-night-700 rounded-lg p-3 text-center">
+        <div class="text-xs muted">Error naive</div>
+        <div class="text-xl font-bold text-gray-400">${res.naive_mape??'—'}%</div>
+      </div>
+      <div class="bg-night-700 rounded-lg p-3 text-center">
+        <div class="text-xs muted">Mejora sobre naive</div>
+        <div class="text-xl font-bold ${meets?'text-good':'text-warn'}">${res.mape_improvement_pct??'—'}%</div>
+        <div class="text-[10px] muted">obj. 20-50%</div>
+      </div>`;
+  }
+  // Alertas
+  $('#m1-alerts').innerHTML=res.alerts.map(a=>
+    `<div class="flex items-start gap-2 py-2 border-b border-night-700">
+      <span class="chip ${a.severity==='critical'?'red':a.severity==='warning'?'amber':'cyan'}">${a.severity}</span>
+      <span class="text-xs">${a.message}</span>
+    </div>`
+  ).join('')||'<div class="flex items-center gap-2 py-2 text-good"><span class="chip green">ok</span><span class="text-xs">Sin alertas — inventario adecuado para la demanda proyectada.</span></div>';
+}
+
+function renderDemandChart(res){
+  // DESTRUIR chart anterior antes de crear uno nuevo
+  if(demandChart){demandChart.destroy();demandChart=null;}
+  if(!$('#demandChart'))return;
+  const actuals=res.recent_actuals||[];
+  const actLabels=actuals.map(a=>a.date.slice(5));
+  const projLabels=res.projections.map(p=>p.date.slice(5));
+  const labels=[...actLabels,...projLabels];
+
+  const actSeries=[...actuals.map(a=>a.actual_units),...new Array(projLabels.length).fill(null)];
+  const bridgeVal=actuals.length?actuals[actuals.length-1].actual_units:null;
+  const predPrefix=actuals.length?[...new Array(actuals.length-1).fill(null),bridgeVal]:[];
+  const boundaryPrefix=new Array(actuals.length).fill(null);
+
+  const pred=[...predPrefix,...res.projections.map(p=>p.predicted_units)];
+  const up=[...boundaryPrefix,...res.projections.map(p=>p.upper_bound)];
+  const low=[...boundaryPrefix,...res.projections.map(p=>p.lower_bound)];
+  const ctx=$('#demandChart');
+  demandChart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {label:'Real (Histórico)',data:actSeries,borderColor:'#10b981',backgroundColor:'#10b98122',fill:false,tension:.3,pointRadius:2.5,pointBackgroundColor:'#10b981'},
+        {label:'Predicha (IA)',data:pred,borderColor:'#22d3ee',backgroundColor:'#22d3ee15',fill:false,tension:.3,pointRadius:2,pointBackgroundColor:'#22d3ee'},
+        {label:'Confianza alta (95%)',data:up,borderColor:'#22d3ee33',fill:'+1',backgroundColor:'#22d3ee11',pointRadius:0,borderDash:[4,4]},
+        {label:'Confianza baja (95%)',data:low,borderColor:'transparent',pointRadius:0,fill:false},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{intersect:false,mode:'index'},
+      plugins:{legend:{labels:{color:'#9ca3af',usePointStyle:true,pointStyle:'circle'}},
+        tooltip:{backgroundColor:'#1a2235',borderColor:'#243047',borderWidth:1,
+          callbacks:{label:ctx=>ctx.parsed.y!==null?`${ctx.dataset.label}: ${ctx.parsed.y.toFixed(0)} unidades`:''}}},
+      scales:{
+        x:{ticks:{color:'#6b7280',maxRotation:45},grid:{color:'#1a2235'}},
+        y:{ticks:{color:'#6b7280'},grid:{color:'#1a2235'},beginAtZero:true}
+      }
+    }
+  });
+}
+
+async function loadStock(){
+  const region=$('#m1-region')?$('#m1-region').value:'R-MAD';
+  const rows=await api('/api/demand/stock?region_id='+encodeURIComponent(region));
+  const sku=$('#m1-sku')?$('#m1-sku').value:null;
+  let html='';
+  if(!rows||rows.length===0){ html='<span class="text-xs muted">Sin datos de inventario para esta región.</span>'; }
+  else{
+    html=rows.map(r=>{
+      const pct=Math.min(100,Math.max(0,parseInt(r.fill_pct)||0));
+      const color=pct<30?'#f43f5e':pct<60?'#f59e0b':'#10b981';
+      const isCurrent=sku&&r.sku===sku;
+      return `<div class="flex items-center gap-3 py-1.5 border-b border-night-700 ${isCurrent?'bg-night-700':''}">
+        <span class="text-xs font-mono text-gray-300 w-28">${r.sku.replace('SKU-','')}</span>
+        <span class="text-xs muted flex-1 truncate">${r.name}</span>
+        <div class="flex items-center gap-2 w-40">
+          <div class="flex-1 bg-night-700 rounded-full h-2.5 overflow-hidden">
+            <div class="stock-bar h-full rounded-full" style="width:${pct}%;background:${color}"></div>
+          </div>
+          <span class="text-[11px] font-mono w-10 text-right">${r.on_hand}</span>
+        </div>
+        <span class="chip ${pct<30?'red':pct<60?'amber':'green'}" style="font-size:10px">${pct<30?'⚠ bajo':pct<100?'ok':'lleno'}</span>
+      </div>`;
+    }).join('');
+  }
+  const nCrit=rows?rows.filter(r=>parseInt(r.fill_pct)<30).length:0;
+  const nLow=rows?rows.filter(r=>parseInt(r.fill_pct)>=30&&parseInt(r.fill_pct)<60).length:0;
+  $('#m1-stock').innerHTML=`
+    <div class="flex items-center gap-3 text-[11px] muted mb-2">
+      <span>📍 ${region}</span>
+      <span class="text-crit">${nCrit} con riesgo</span>
+      <span class="text-warn">${nLow} bajo nivel</span>
+      <span>Click en un producto en el selector para resaltarlo</span>
+    </div>
+    ${html}`;
+}
+
+async function uploadSales(){
+  const f=$('#m1-file').files[0];
+  if(!f){ showToast('Selecciona un archivo', 'Elige un archivo .csv o .json con histórico de ventas.', 'warn'); return; }
+  const fd=new FormData(); fd.append('file',f);
+  const r=await fetch('/api/demand/ingest',{method:'POST',body:fd});
+  const j=await r.json();
+  showToast('Histórico ERP Ingestado', `Procesados ${j.rows_ingested}/${j.rows_received} registros.${j.unknown_skus.length?'\nSKUs no reconocidos: '+j.unknown_skus.join(', '):''}`, 'success');
+  runForecast();
+}
+
+
+/* ==================== MAPA ESTILO GOOGLE MAPS & RUTAS ==================== */
+const MAP_CITIES={
+  // Sudamérica - Brasil (Eje Dataset Ifood & BD Logística)
+  'belo horizonte':[-19.9167,-43.9345],'bh':[-19.9167,-43.9345],
+  'são paulo':[-23.5505,-46.6333],'sao paulo':[-23.5505,-46.6333],'sp':[-23.5505,-46.6333],
+  'rio de janeiro':[-22.9068,-43.1729],'rj':[-22.9068,-43.1729],
+  'curitiba':[-25.4284,-49.2733],'porto alegre':[-30.0346,-51.2177],
+  'brasília':[-15.7975,-47.8919],'brasilia':[-15.7975,-47.8919],'campinas':[-22.9099,-47.0626],
+  'santos':[-23.9618,-46.3322],
+  // Sudamérica - Cono Sur & Andina
+  'buenos aires':[-34.6037,-58.3816],'bue':[-34.6037,-58.3816],'rosario':[-32.9468,-60.6393],
+  'mendoza':[-32.8895,-68.8458],'córdoba ar':[-31.4201,-64.1888],'cordoba':[-31.4201,-64.1888],
+  'santiago':[-33.4489,-70.6693],'scl':[-33.4489,-70.6693],'valparaíso':[-33.0472,-71.6127],
+  'lima':[-12.0464,-77.0428],'lim':[-12.0464,-77.0428],'bogotá':[-4.7110,-74.0721],'bogota':[4.7110,-74.0721],'bog':[4.7110,-74.0721],
+  'medellín':[6.2442,-75.5812],'medellin':[6.2442,-75.5812],'montevideo':[-34.9011,-56.1645],
+  // Conexiones Globales & América del Norte / Europa
+  'ciudad de méxico':[19.4326,-99.1332],'mexico':[19.4326,-99.1332],'mex':[19.4326,-99.1332],
+  'miami':[25.7617,-80.1918],'mia':[25.7617,-80.1918],
+  'madrid':[40.4168,-3.7038],'mad':[40.4168,-3.7038],'barcelona':[41.3874,2.1686],'bcn':[41.3874,2.1686],
+  'valencia':[39.4699,-0.3763],'vlc':[39.4699,-0.3763],'sevilla':[37.3891,-5.9845],'sev':[37.3891,-5.9845],
+  'bilbao':[43.263,-2.935],'bil':[43.263,-2.935],'frankfurt':[50.1109,8.6821],'fra':[50.1109,8.6821],
+  'lisboa':[38.7223,-9.1393],'lis':[38.7223,-9.1393],'milán':[45.4642,9.19],'milan':[45.4642,9.19],'mil':[45.4642,9.19]
+};
+
+const ROAD_NODES={
+  // Brasil & Sudamérica
+  'São Paulo':[-23.5505,-46.6333],'Campinas':[-22.9099,-47.0626],'Santos':[-23.9618,-46.3322],
+  'São José dos Campos':[-23.1896,-45.8841],'Resende':[-22.4687,-44.4465],'Rio de Janeiro':[-22.9068,-43.1729],
+  'Juiz de Fora':[-21.7587,-43.3496],'Barbacena':[-21.2258,-43.7736],'Belo Horizonte':[-19.9167,-43.9345],
+  'Curitiba':[-25.4284,-49.2733],'Joinville':[-26.3045,-48.8487],'Florianópolis':[-27.5954,-48.5480],
+  'Porto Alegre':[-30.0346,-51.2177],'Ribeirão Preto':[-21.1767,-47.8108],'Uberaba':[-19.7472,-47.9392],
+  'Goiânia':[-16.6869,-49.2648],'Brasília':[-15.7975,-47.8919],
+  'Buenos Aires':[-34.6037,-58.3816],'Rosario':[-32.9468,-60.6393],'Córdoba AR':[-31.4201,-64.1888],
+  'Mendoza':[-32.8895,-68.8458],'Paso Libertadores':[-32.8252,-70.0827],'Santiago':[-33.4489,-70.6693],
+  'Valparaíso':[-33.0472,-71.6127],'Montevideo':[-34.9011,-56.1645],
+  'Lima':[-12.0464,-77.0428],'Arequipa':[-16.4090,-71.5375],'Antofagasta':[-23.6509,-70.3975],
+  'Bogotá':[4.7110,-74.0721],'Ibagué':[4.4389,-75.2322],'Armenia':[4.5339,-75.6811],'Medellín':[6.2442,-75.5812],
+  'Cali':[3.4516,-76.5320],'Quito':[-0.1807,-78.4678],
+  // Corredores Marítimos / Aéreos Transcontinentales
+  'Miami':[25.7617,-80.1918],'Caribe Waypoint':[15.0,-75.0],'Atlántico Norte Waypoint':[28.0,-45.0],
+  'Ciudad de México':[19.4326,-99.1332],'Panamá Canal':[8.9824,-79.5199],
+  // Europa
+  'Madrid':[40.4168,-3.7038],'Zaragoza':[41.6488,-0.8891],'Lleida':[41.6176,0.6200],'Barcelona':[41.3874,2.1686],
+  'Tarragona':[41.1189,1.2445],'Valencia':[39.4699,-0.3763],'Sevilla':[37.3891,-5.9845],
+  'Lisboa':[38.7223,-9.1393],'Frankfurt':[50.1109,8.6821],'Bilbao':[43.263,-2.935]
+};
+
+const CORRIDORS=[
+  // Eje Principal Brasil (Dutra, Fernão Dias, Régis Bittencourt)
+  ['São Paulo','São José dos Campos','Resende','Rio de Janeiro'],
+  ['Belo Horizonte','Barbacena','Juiz de Fora','Rio de Janeiro'],
+  ['São Paulo','Campinas','Ribeirão Preto','Uberaba','Belo Horizonte'],
+  ['São Paulo','Campinas'],
+  ['São Paulo','Santos'],
+  ['São Paulo','Curitiba','Joinville','Florianópolis','Porto Alegre'],
+  ['Belo Horizonte','Uberaba','Goiânia','Brasília'],
+  // Eje Cono Sur
+  ['Buenos Aires','Rosario','Córdoba AR','Mendoza'],
+  ['Mendoza','Paso Libertadores','Santiago'],
+  ['Santiago','Valparaíso'],
+  ['Buenos Aires','Montevideo'],
+  // Eje Andino
+  ['Bogotá','Ibagué','Armenia','Medellín'],
+  ['Bogotá','Cali','Quito','Lima'],
+  ['Lima','Arequipa','Antofagasta','Santiago'],
+  // Rutas Transcontinentales Globales
+  ['São Paulo','Caribe Waypoint','Miami'],
+  ['Buenos Aires','Atlántico Norte Waypoint','Madrid'],
+  ['Rio de Janeiro','Atlántico Norte Waypoint','Lisboa'],
+  ['Ciudad de México','Panamá Canal','Bogotá'],
+  // Europa
+  ['Madrid','Zaragoza','Lleida','Barcelona'],
+  ['Barcelona','Tarragona','Valencia'],
+  ['Madrid','Valencia'],
+  ['Madrid','Sevilla'],
+  ['Madrid','Lisboa'],
+  ['Madrid','Bilbao','Frankfurt']
+];
+
+const WAREHOUSE_HUBS=[
+  {id:'WH-SP',name:'Hub Central São Paulo (CD Alphaville)',city:'São Paulo',lat:-23.5505,lng:-46.6333,zone:'BR-SP',country:'Brasil'},
+  {id:'WH-BH',name:'Hub Minas Gerais (CD Contagem)',city:'Belo Horizonte',lat:-19.9167,lng:-43.9345,zone:'BR-MG',country:'Brasil'},
+  {id:'WH-RJ',name:'Hub Rio de Janeiro (CD Duque de Caxias)',city:'Rio de Janeiro',lat:-22.9068,lng:-43.1729,zone:'BR-RJ',country:'Brasil'},
+  {id:'WH-BUE',name:'Hub Cono Sur Buenos Aires',city:'Buenos Aires',lat:-34.6037,lng:-58.3816,zone:'AR-BA',country:'Argentina'},
+  {id:'WH-SCL',name:'Hub Pacífico Santiago Pudahuel',city:'Santiago',lat:-33.4489,lng:-70.6693,zone:'CL-RM',country:'Chile'},
+  {id:'WH-BOG',name:'Hub Andino Bogotá El Dorado',city:'Bogotá',lat:4.7110,lng:-74.0721,zone:'CO-DC',country:'Colombia'},
+  {id:'WH-LIM',name:'Hub Callao Lima Port',city:'Lima',lat:-12.0464,lng:-77.0428,zone:'PE-LIM',country:'Perú'},
+  {id:'WH-MEX',name:'Hub Norteamérica CDMX',city:'Ciudad de México',lat:19.4326,lng:-99.1332,zone:'MX-CDMX',country:'México'},
+  {id:'WH-MIA',name:'Hub Global Miami Gateway',city:'Miami',lat:25.7617,lng:-80.1918,zone:'US-FL',country:'EE.UU.'},
+  {id:'WH-MAD',name:'Hub Transatlántico Madrid',city:'Madrid',lat:40.4168,lng:-3.7038,zone:'ES-MAD',country:'España'},
+  {id:'WH-FRA',name:'Hub Europa Central Frankfurt',city:'Frankfurt',lat:50.1109,lng:8.6821,zone:'DE-HE',country:'Alemania'}
+];
+
+const _roadAdj={};
+CORRIDORS.forEach(c=>c.forEach((n,i)=>{if(i>0){(_roadAdj[c[i-1]]=_roadAdj[c[i-1]]||[]).push(n);(_roadAdj[n]=_roadAdj[n]||[]).push(c[i-1]);}}));
+
+function cityName(x){
+  const k=(x||'').toLowerCase().replace(/^wh[-_]/,'');
+  const A={
+    sp:'São Paulo','sao paulo':'São Paulo','são paulo':'São Paulo',
+    bh:'Belo Horizonte','belo horizonte':'Belo Horizonte',
+    rj:'Rio de Janeiro','rio de janeiro':'Rio de Janeiro',
+    bue:'Buenos Aires','buenos aires':'Buenos Aires',
+    scl:'Santiago',santiago:'Santiago',
+    bog:'Bogotá',bogota:'Bogotá','bogotá':'Bogotá',
+    lim:'Lima',lima:'Lima',
+    mex:'Ciudad de México','mexico':'Ciudad de México','ciudad de méxico':'Ciudad de México',
+    mia:'Miami',miami:'Miami',
+    curitiba:'Curitiba','porto alegre':'Porto Alegre',brasilia:'Brasília','brasília':'Brasília',
+    campinas:'Campinas',santos:'Santos',rosario:'Rosario',mendoza:'Mendoza',
+    valparaiso:'Valparaíso','valparaíso':'Valparaíso',medellin:'Medellín','medellín':'Medellín',
+    montevideo:'Montevideo',
+    mad:'Madrid',madrid:'Madrid',bcn:'Barcelona',barcelona:'Barcelona',
+    vlc:'Valencia',valencia:'Valencia',sev:'Sevilla',sevilla:'Sevilla',
+    bil:'Bilbao',bilbao:'Bilbao',fra:'Frankfurt',frankfurt:'Frankfurt',
+    lis:'Lisboa',lisboa:'Lisboa',mil:'Milán',milan:'Milán','milán':'Milán'
+  };
+  return A[k]||(k.charAt(0).toUpperCase()+k.slice(1));
+}
+
+function roadPath(a,b){
+  if(a===b||!ROAD_NODES[a]||!ROAD_NODES[b])return [a,b];
+  const prev={a:null},seen={};const q=[a];seen[a]=1;
+  while(q.length){
+    const u=q.shift();
+    if(u===b){const p=[b];let cur=b;while(prev[cur]){p.unshift(prev[cur]);cur=prev[cur];}return p;}
+    for(const v of (_roadAdj[u]||[]))if(!seen[v]){seen[v]=1;prev[v]=u;q.push(v);}
+  }
+  return [a,b];
+}
+
+function roadCoords(n){return ROAD_NODES[n]||MAP_CITIES[n.toLowerCase()];}
+
+function getGeoRoadPoints(originCity,destCity){
+  const path=roadPath(cityName(originCity),cityName(destCity));
+  return path.map(n=>roadCoords(n)).filter(Boolean);
+}
+
+function interpolateGeoPoint(points,progressPct){
+  if(!points||points.length===0)return [40.4168,-3.7038];
+  if(points.length===1)return points[0];
+  const t=Math.min(1,Math.max(0,progressPct/100));
+  let totalDist=0;
+  const segDists=[];
+  for(let i=1;i<points.length;i++){
+    const d=Math.hypot(points[i][0]-points[i-1][0],points[i][1]-points[i-1][1]);
+    segDists.push(d);
+    totalDist+=d;
+  }
+  if(totalDist===0)return points[0];
+  let target=t*totalDist;
+  for(let i=0;i<segDists.length;i++){
+    if(target<=segDists[i]||i===segDists.length-1){
+      const frac=segDists[i]===0?0:Math.min(1,target/segDists[i]);
+      return [
+        points[i][0]+(points[i+1][0]-points[i][0])*frac,
+        points[i][1]+(points[i+1][1]-points[i][1])*frac
+      ];
+    }
+    target-=segDists[i];
+  }
+  return points[points.length-1];
+}
+
+function truckState(d){
+  if(d.telemetry_status==='disrupted'||d.status==='disrupted')return 'stopped';
+  if((d.delay_min||0)>0||d.status==='retendered'||d.telemetry_status==='delayed')return 'delayed';
+  if(d.status==='planned')return 'planned';
+  return 'ok';
+}
+
+/* Variables globales del mapa interactivo */
+let gLeafletMap=null;
+let gMapTileLayer=null;
+let gMapLabelsLayer=null;
+let gMapCurrentMode='satellite'; // Predeterminado: Satelital de alta resolución
+let gMapTrafficOn=true;
+let gMapActiveFilter='all'; // 'all' | 'ok' | 'delayed' | 'stopped' | 'hubs'
+let gMapMarkersMap={}; // shipment_id -> L.marker
+let gMapRoutesMap={};  // shipment_id -> L.polyline
+let gMapHubMarkers=[];
+let gMapDeliveriesCache=[];
+
+/* Definición de Pines estilo Google Maps (SVG teardrop pin con drop-shadow) */
+function createGMapPinIcon(color, iconType, label, problemState){
+  const isStopped=(problemState==='stopped');
+  const isDelayed=(problemState==='delayed');
+  const isHub=(iconType==='hub');
+  
+  const pulseHtml=isStopped
+    ? `<div class="absolute -top-3 -left-3 w-14 h-14 rounded-full border-2 border-red-500 pulse-ring-red pointer-events-none"></div>`
+    : isDelayed
+    ? `<div class="absolute -top-2 -left-2 w-12 h-12 rounded-full border-2 border-amber-500 pulse-ring-amber pointer-events-none"></div>`
+    : '';
+
+  const truckSvgPath=`<path d="M19 10h-3V6H3c-1.1 0-2 .9-2 2v10h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 19.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-8l1.96 2.5H16v-2.5h3.5zM18 19.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" fill="#ffffff"/>`;
+  const hubSvgPath=`<path d="M12 2L2 7v14h20V7L12 2zm0 2.8L19 8v11H5V8l7-3.2zM9 12h6v7H9v-7zm2 2v3h2v-3h-2z" fill="#ffffff"/>`;
+  const innerIcon=isHub?hubSvgPath:truckSvgPath;
+
+  const pinW=isHub?32:36;
+  const pinH=isHub?42:48;
+
+  return L.divIcon({
+    className:'gmap-marker-container',
+    html:`
+      <div class="relative flex flex-col items-center cursor-pointer select-none" style="transform:translate(-50%, -100%);">
+        ${pulseHtml}
+        <div class="relative filter drop-shadow-lg transition-transform hover:scale-110">
+          <svg width="${pinW}" height="${pinH}" viewBox="0 0 34 46" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M17 0C7.611 0 0 7.611 0 17c0 13.5 17 29 17 29s17-15.5 17-29C34 7.611 26.389 0 17 0z" fill="${color}" stroke="#ffffff" stroke-width="1.8"/>
+            <circle cx="17" cy="17" r="12.5" fill="${color}"/>
+            <g transform="translate(5, 5) scale(0.98)">
+              ${innerIcon}
+            </g>
+          </svg>
+        </div>
+        ${label ? `<span class="bg-[#111827ee] text-white text-[9.5px] font-bold px-1.5 py-0.5 rounded shadow mt-0.5 whitespace-nowrap border border-gray-700">${label}</span>` : ''}
+      </div>
+    `,
+    iconSize:[pinW,pinH],
+    iconAnchor:[pinW/2,pinH],
+    popupAnchor:[0,-pinH+4]
+  });
+}
+
+function gmapInfoWindowHtml(d){
+  const st=truckState(d);
+  const stBadge=st==='stopped'?'<span class="chip red">🔴 Detenido</span>':st==='delayed'?'<span class="chip amber">🟡 Retrasado</span>':d.status==='planned'?'<span class="chip cyan">🔵 Planificado</span>':'<span class="chip green">🟢 En Horario</span>';
+  const pc=Math.round(d.progress_pct||0);
+  const barColor=st==='stopped'?'bg-red-500':st==='delayed'?'bg-amber-500':'bg-emerald-400';
+  const delayMsg=(d.delay_min||0)>0?`+${d.delay_min} min · ${d.telemetry_reason||'incidente'}`:'Sin retrasos detectados';
+
+  return `
+    <div class="p-3 text-gray-200" style="min-width:270px;max-width:320px;">
+      <div class="flex items-center justify-between border-b border-night-600 pb-2 mb-2">
+        <div>
+          <span class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Seguimiento de Envio</span>
+          <h4 class="font-bold text-sm text-white font-mono">${d.shipment_id}</h4>
+        </div>
+        ${stBadge}
+      </div>
+      <div class="text-xs mb-2.5">
+        <div class="flex items-center justify-between text-gray-300 font-medium bg-night-800 p-2 rounded border border-night-700">
+          <span>📍 ${cityName(d.origin)}</span>
+          <span class="text-accent text-sm">➔</span>
+          <span class="font-bold text-white">🏁 ${cityName(d.destination)}</span>
+        </div>
+      </div>
+      <div class="mb-2.5">
+        <div class="flex justify-between text-[11px] text-gray-400 mb-1">
+          <span>Progreso del viaje</span>
+          <span class="font-bold text-accent">${pc}%</span>
+        </div>
+        <div class="w-full bg-night-700 h-2 rounded-full overflow-hidden">
+          <div class="h-full ${barColor} rounded-full transition-all" style="width:${pc}%"></div>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-2 text-[11px] bg-night-800/80 p-2 rounded border border-night-700 mb-3">
+        <div><span class="muted block text-[10px]">Transportista:</span><b class="text-white truncate block">${d.carrier_name||d.carrier_id}</b></div>
+        <div><span class="muted block text-[10px]">Velocidad:</span><b class="text-white">${d.speed_kmh||0} km/h</b></div>
+        <div><span class="muted block text-[10px]">ETA Estimada:</span><b class="text-accent">${(d.current_eta||'').slice(0,16).replace('T',' ')||'En ruta'}</b></div>
+        <div><span class="muted block text-[10px]">Incidencia:</span><b class="${(d.delay_min||0)>0?'text-amber-400':'text-green-400'}">${delayMsg}</b></div>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="focusShipmentOnMap('${d.shipment_id}',true)" class="btn flex-1 text-xs py-1.5 text-center">🎯 Centrar</button>
+        <button onclick="selectShipmentForDisruption('${d.shipment_id}')" class="btn primary flex-1 text-xs py-1.5 text-center font-semibold">⚡ Simular</button>
+      </div>
+    </div>`;
+}
+
+function gmapHubInfoWindowHtml(hub){
+  return `
+    <div class="p-3 text-gray-200" style="min-width:240px;">
+      <div class="flex items-center justify-between border-b border-night-600 pb-2 mb-2">
+        <div>
+          <span class="text-[10px] uppercase font-bold text-accent tracking-wider">Centro Logistico Hub</span>
+          <h4 class="font-bold text-sm text-white">${hub.name}</h4>
+        </div>
+        <span class="chip cyan">${hub.id}</span>
+      </div>
+      <div class="text-xs space-y-1 mb-3">
+        <div><span class="muted">Ciudad:</span> <b class="text-white">${hub.city}</b></div>
+        <div><span class="muted">Zona Operativa:</span> <span class="chip cyan">${hub.zone}</span></div>
+        <div><span class="muted">Coordenadas:</span> <span class="font-mono text-gray-400">${hub.lat.toFixed(4)}, ${hub.lng.toFixed(4)}</span></div>
+        <div><span class="muted">Capacidad:</span> <span class="text-good font-semibold">Operativo 100%</span></div>
+      </div>
+      <button onclick="switchTab('stock'); setTimeout(()=>{ const el=$('#stock-filter-reg'); if(el){ const regId='${hub.id.replace('WH-','R-')}'; if([...el.options].some(o=>o.value===regId)){ el.value=regId; filterStockTable(); } } }, 250);" class="btn primary w-full text-xs py-1.5 text-center">📦 Ver Stock de este Hub</button>
+    </div>`;
+}
+
+function setGMapTileLayer(mode){
+  if(!gLeafletMap)return;
+  gMapCurrentMode=mode;
+  if(gMapTileLayer){gLeafletMap.removeLayer(gMapTileLayer);gMapTileLayer=null;}
+  if(gMapLabelsLayer){gLeafletMap.removeLayer(gMapLabelsLayer);gMapLabelsLayer=null;}
+
+  // Actualizar botones visuales
+  ['streets','satellite','dark'].forEach(m=>{
+    const btn=$('#gmap-btn-'+m);
+    if(btn)btn.classList.toggle('primary',m===mode);
+  });
+
+  const cont=$('#gmap-container');
+  if(cont){
+    cont.classList.toggle('gmap-dark',mode==='dark');
+  }
+
+  try{
+    if(mode==='satellite'){
+      // Esri World Imagery + labels
+      gMapTileLayer=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
+        maxZoom:18,
+        attribution:'Esri, Maxar, Earthstar'
+      }).addTo(gLeafletMap);
+      gMapLabelsLayer=L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',{
+        subdomains:'abcd',maxZoom:18
+      }).addTo(gLeafletMap);
+    }else if(mode==='dark'){
+      // Carto Dark Matter
+      gMapTileLayer=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+        subdomains:'abcd',maxZoom:19,
+        attribution:'&copy; CARTO &copy; OpenStreetMap'
+      }).addTo(gLeafletMap);
+    }else{
+      // Google Maps Streets palette: Carto Voyager
+      gMapTileLayer=L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+        subdomains:'abcd',maxZoom:19,
+        attribution:'&copy; CARTO &copy; OpenStreetMap'
+      }).addTo(gLeafletMap);
+    }
+  }catch(err){
+    console.warn("Fallo cargando mosaico online:", err);
+  }
+}
+
+function toggleGMapTraffic(){
+  gMapTrafficOn=!gMapTrafficOn;
+  const btn=$('#gmap-btn-traffic');
+  if(btn){
+    btn.classList.toggle('primary',gMapTrafficOn);
+  }
+  updateGMapDeliveries(gMapDeliveriesCache);
+}
+
+function setGMapFleetFilter(filterType){
+  gMapActiveFilter=filterType;
+  $$('.gmap-chip').forEach(c=>{
+    c.classList.toggle('active',c.dataset.filter===filterType);
+  });
+  updateGMapDeliveries(gMapDeliveriesCache);
+}
+
+function resetGMapView(region='sa'){
+  if(!gLeafletMap)return;
+  if(region==='sa'||region==='south-america'){
+    // Sudamérica - Triángulo logístico SP-BH-RJ con zoom nítido
+    gLeafletMap.flyTo([-21.5, -46.5], 7, {duration: 1.2});
+  }else if(region==='world'){
+    gLeafletMap.flyTo([5.0, -35.0], 3, {duration: 1.5});
+  }else if(region==='europe'){
+    gLeafletMap.flyTo([40.2, -3.7], 6, {duration: 1.2});
+  }else{
+    gLeafletMap.flyTo([-21.5, -46.5], 7, {duration: 1.2});
+  }
+}
+
+function selectShipmentForDisruption(shipmentId){
+  const sel=$('#m2-ship');
+  if(sel){
+    sel.value=shipmentId;
+    sel.scrollIntoView({behavior:'smooth',block:'center'});
+    sel.classList.add('border-accent');
+    setTimeout(()=>sel.classList.remove('border-accent'),2000);
+  }
+}
+
+function focusShipmentOnMap(shipmentId, zoomIn=false){
+  if(!gLeafletMap||!gMapMarkersMap[shipmentId])return;
+  const marker=gMapMarkersMap[shipmentId];
+  const latLng=marker.getLatLng();
+  gLeafletMap.flyTo(latLng, zoomIn ? 11 : Math.max(gLeafletMap.getZoom(), 8), {duration: 1.0});
+  marker.openPopup();
+}
+
+function handleGMapSearch(q){
+  q=(q||'').trim().toLowerCase();
+  const resDiv=$('#gmap-search-results');
+  if(!resDiv)return;
+  if(!q){resDiv.innerHTML='';resDiv.classList.add('hidden');return;}
+
+  const matches=[];
+  // Buscar en envíos
+  gMapDeliveriesCache.forEach(d=>{
+    if((d.shipment_id||'').toLowerCase().includes(q) || (d.destination||'').toLowerCase().includes(q) || (d.carrier_name||'').toLowerCase().includes(q)){
+      matches.push({type:'shipment',id:d.shipment_id,title:`🚚 ${d.shipment_id}`,subtitle:`${cityName(d.origin)} ➔ ${cityName(d.destination)} (${d.carrier_name||d.carrier_id})`});
+    }
+  });
+  // Buscar en almacenes hub
+  WAREHOUSE_HUBS.forEach(h=>{
+    if(h.name.toLowerCase().includes(q) || h.city.toLowerCase().includes(q) || h.id.toLowerCase().includes(q)){
+      matches.push({type:'hub',id:h.id,lat:h.lat,lng:h.lng,title:`🏢 ${h.name}`,subtitle:`Hub Logístico ${h.city} (${h.country||'SCM'})`});
+    }
+  });
+
+  if(matches.length===0){
+    resDiv.innerHTML='<div class="p-2 text-xs muted">Sin resultados</div>';
+    resDiv.classList.remove('hidden');
+    return;
+  }
+
+  resDiv.innerHTML=matches.slice(0,5).map(m=>`
+    <div onclick="selectGMapSearchResult('${m.type}','${m.id}')" class="p-2 hover:bg-night-700 cursor-pointer border-b border-night-700/60 last:border-0">
+      <div class="text-xs font-bold text-white">${m.title}</div>
+      <div class="text-[11px] muted">${m.subtitle}</div>
+    </div>
+  `).join('');
+  resDiv.classList.remove('hidden');
+}
+
+function selectGMapSearchResult(type,id){
+  const resDiv=$('#gmap-search-results');
+  if(resDiv)resDiv.classList.add('hidden');
+  const input=$('#gmap-search');
+  if(input)input.value=id;
+
+  if(type==='shipment'){
+    focusShipmentOnMap(id,true);
+  }else if(type==='hub'){
+    const hub=WAREHOUSE_HUBS.find(h=>h.id===id);
+    if(hub&&gLeafletMap){
+      gLeafletMap.flyTo([hub.lat,hub.lng],10,{duration:1.0});
+      const hm=gMapHubMarkers.find(m=>m._hubId===id);
+      if(hm)hm.openPopup();
+    }
+  }
+}
+
+function initGoogleMap(deliveries){
+  const mapDiv=$('#gmap-interactive');
+  if(!mapDiv)return;
+  if(typeof L==='undefined'){
+    $('#gmap-container').innerHTML=renderMapFallback(deliveries);
+    return;
+  }
+
+  // Destruir mapa anterior si existía
+  if(gLeafletMap){
+    try{ gLeafletMap.remove(); }catch(e){}
+    gLeafletMap=null;
+    gMapMarkersMap={};
+    gMapRoutesMap={};
+    gMapHubMarkers=[];
+  }
+
+  // Inicializar Leaflet con vista centrada en Sudamérica (Eje logístico SP-BH-RJ) con más zoom
+  gLeafletMap=L.map('gmap-interactive',{
+    center:[-21.5,-46.5],
+    zoom:7, // Bastante más zoom para ver con nitidez satelital rutas, autopistas y ciudades
+    zoomControl:false
+  });
+
+  // Configurar capa base (Satelital de alta definición con etiquetas vívidas)
+  setGMapTileLayer(gMapCurrentMode);
+
+  // Pintar almacenes hub principales
+  WAREHOUSE_HUBS.forEach(hub=>{
+    const icon=createGMapPinIcon('#3b82f6','hub',hub.city,null);
+    const m=L.marker([hub.lat,hub.lng],{icon}).addTo(gLeafletMap);
+    m._hubId=hub.id;
+    m.bindPopup(gmapHubInfoWindowHtml(hub),{className:'gmap-popup'});
+    gMapHubMarkers.push(m);
+  });
+
+  updateGMapDeliveries(deliveries);
+}
+
+function updateGMapDeliveries(deliveries){
+  gMapDeliveriesCache=deliveries||[];
+  if(!gLeafletMap)return;
+
+  // Recordar si algún popup estaba abierto para no cerrarlo en refresco automático
+  let openPopupShipId=null;
+  Object.entries(gMapMarkersMap).forEach(([sid,m])=>{
+    if(m.isPopupOpen&&m.isPopupOpen())openPopupShipId=sid;
+    gLeafletMap.removeLayer(m);
+  });
+  Object.values(gMapRoutesMap).forEach(layers=>{
+    if(Array.isArray(layers))layers.forEach(l=>gLeafletMap.removeLayer(l));
+    else if(layers)gLeafletMap.removeLayer(layers);
+  });
+  gMapMarkersMap={};
+  gMapRoutesMap={};
+
+  // Visibilidad de hubs
+  const showHubs=(gMapActiveFilter==='all'||gMapActiveFilter==='hubs');
+  gMapHubMarkers.forEach(hm=>{
+    if(showHubs){
+      if(!gLeafletMap.hasLayer(hm))gLeafletMap.addLayer(hm);
+    }else{
+      if(gLeafletMap.hasLayer(hm))gLeafletMap.removeLayer(hm);
+    }
+  });
+
+  (deliveries||[]).forEach(d=>{
+    const st=truckState(d);
+    if(gMapActiveFilter!=='all'&&gMapActiveFilter!=='hubs'&&gMapActiveFilter!==st)return;
+
+    const geoPts=getGeoRoadPoints(d.origin,d.destination);
+    if(geoPts.length<2)return;
+
+    // Colores según tráfico y estado
+    const stColor=st==='stopped'?'#f43f5e':st==='delayed'?'#f59e0b':d.status==='planned'?'#22d3ee':'#10b981';
+
+    // Línea de carretera estilo Google Maps (casing blanco/oscuro + línea de tráfico)
+    if(gMapTrafficOn){
+      const casing=L.polyline(geoPts,{
+        color:'#111827',
+        weight:6.5,
+        opacity:0.65,
+        lineCap:'round',
+        lineJoin:'round'
+      }).addTo(gLeafletMap);
+
+      const trafficLine=L.polyline(geoPts,{
+        color:stColor,
+        weight:4.2,
+        opacity:0.95,
+        dashArray:d.status==='in_transit'?'8, 6':null,
+        lineCap:'round',
+        lineJoin:'round'
+      }).addTo(gLeafletMap);
+
+      gMapRoutesMap[d.shipment_id]=[casing,trafficLine];
+    }
+
+    // Calcular posición actual del camión a lo largo de la ruta
+    const pr=d.progress_pct||0;
+    const currentCoord=interpolateGeoPoint(geoPts,pr);
+
+    // Pin del camión
+    const pinLabel='S-'+((d.shipment_id||'').replace(/\D/g,'').slice(-4)||'');
+    const truckIcon=createGMapPinIcon(stColor,'truck',pinLabel,st);
+
+    const marker=L.marker(currentCoord,{icon:truckIcon,zIndexOffset:st==='stopped'?1000:500}).addTo(gLeafletMap);
+    marker.bindPopup(gmapInfoWindowHtml(d),{className:'gmap-popup'});
+    if(openPopupShipId===d.shipment_id)marker.openPopup();
+    gMapMarkersMap[d.shipment_id]=marker;
+  });
+}
+
+function renderMapFallback(deliveries){
+  // Fallback de alta fidelidad con la paleta de Google Maps
+  const s={w:720,h:430,lngMin:-10.6,lngMax:12.5,latMin:33.6,latMax:52.5};
+  const mapLL=(lat,lng)=>[(lng-s.lngMin)/(s.lngMax-s.lngMin)*s.w,(s.latMax-lat)/(s.latMax-s.latMin)*s.h];
+  let out=`<rect width="${s.w}" height="${s.h}" fill="#111827"/>`;
+  out+=`<text x="16" y="24" fill="#9ca3af" font-size="12">Modo Google Maps Vectorial (Offline)</text>`;
+  return `<svg viewBox="0 0 ${s.w} ${s.h}" class="w-full h-auto rounded-xl">${out}</svg>`;
+}
+
+function renderDeliveriesTableRows(deliveries){
+  return (deliveries||[]).map(d=>{
+    const pc=d.progress_pct||0;
+    const barColor=pc<35?'bg-yellow-500':pc<70?'bg-cyan-500':'bg-green-500';
+    const st=truckState(d);
+    const chipColor=st==='stopped'?'red':st==='delayed'?'amber':d.status==='planned'?'cyan':'green';
+    const stLabel=st==='stopped'?'detenido':st==='delayed'?'retrasado':d.status==='planned'?'programado':'todo bien';
+    const inc=st!=='ok'&&st!=='planned'?(`<span class="chip ${st==='stopped'?'red':'amber'}">${d.delay_min>0?d.delay_min+' min · ':''}${d.telemetry_reason||(st==='delayed'?'retraso en ruta':'detenido')}</span>`):'<span class="muted">—</span>';
+    return `<tr onclick="focusShipmentOnMap('${d.shipment_id}',true)" class="cursor-pointer transition-colors hover:bg-night-700/60" id="row-${d.shipment_id}">
+    <td class="font-mono font-bold text-accent">${d.shipment_id}</td>
+    <td>${d.carrier_name||d.carrier_id}</td>
+    <td>📍 ${d.destination}</td>
+    <td>
+      <div class="flex items-center gap-2">
+        <div class="w-16 bg-night-700 rounded-full h-2 overflow-hidden"><div class="h-full rounded-full ${barColor}" style="width:${Math.min(100,pc)}%"></div></div>
+        <span class="text-[10px] muted">${Math.round(pc)}%</span>
+      </div>
+    </td>
+    <td class="muted">${d.speed_kmh||0} km/h</td>
+    <td class="text-accent">${(d.current_eta||'').slice(0,16).replace('T',' ')}</td>
+    <td><span class="chip ${chipColor}">${stLabel}</span></td>
+    <td>${inc}</td>
+    <td><button onclick="event.stopPropagation();selectShipmentForDisruption('${d.shipment_id}')" class="btn text-[11px] py-0.5 px-2">Simular</button></td>
+  </tr>`;
+  }).join('');
+}
+
+function renderAgentLogsHtml(logs){
+  return (logs||[]).map(l=>`<div class="flex items-start gap-2 py-2 border-b border-night-700">
+    <span class="chip ${l.severity==='critical'?'red':'amber'}">${l.type}</span>
+    <div class="flex-1">
+      <div class="text-gray-300">${l.message}</div>
+      <div class="muted text-[11px] mt-0.5">${(l.created_at||'').slice(0,16).replace('T',' ')}</div>
+    </div>
+  </div>`).join('')||'<div class="muted">Sin eventos. Simula un incidente para ver el flujo agentico en accion.</div>';
+}
+
+/* ==================== MÓDULO 2 ==================== */
+async function loadM2(){
+  const [carriers,deliveries,logs]=await Promise.all([
+    api('/api/routing/carriers'),api('/api/routing/deliveries'),api('/api/routing/logs')
+  ]);
+
+  const nOk=deliveries.filter(d=>truckState(d)==='ok').length;
+  const nDelayed=deliveries.filter(d=>truckState(d)==='delayed').length;
+  const nStopped=deliveries.filter(d=>truckState(d)==='stopped').length;
+
+  render(`
+  <!-- PANEL DE INCIDENTES Y LOGS -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+    <div class="card p-4 space-y-3">
+      <div class="flex items-center gap-1">
+        <h3 class="font-semibold text-white">Simular incidente en ruta</h3>
+        ${tip('Dispara el bucle agentico autonomo: el sistema detecta un retraso, recalcula el impacto, busca transportistas alternativos y actualiza el ETA del cliente.')}
+      </div>
+      <div>
+        <div class="flex items-center gap-1 mb-1"><label class="text-xs muted">Envio</label>${tip('Selecciona un envio activo para simularle un retraso.')}</div>
+        <select id="m2-ship" class="w-full">${deliveries.map(d=>`<option value="${d.shipment_id}">${d.shipment_id} ➔ ${d.destination} (${d.carrier_name||d.carrier_id})</option>`).join('')||'<option>SHIP-1000</option>'}</select>
+      </div>
+      <div>
+        <div class="flex items-center gap-1 mb-1"><label class="text-xs muted">Retraso (minutos)</label>${tip('Minutos de retraso simulados. Mas de 60 min requiere aprobacion humana.')}</div>
+        <input id="m2-delay" type="number" value="45" class="w-full">
+      </div>
+      <div>
+        <div class="flex items-center gap-1 mb-1"><label class="text-xs muted">Causa</label>${tip('Motivo del incidente.')}</div>
+        <select id="m2-reason" class="w-full">
+          <option>trafico denso</option><option>tormenta en ruta</option><option>accidente vial</option><option>obras en autovia</option><option>retencion aduanera</option>
+        </select>
+      </div>
+      <button class="btn primary w-full font-semibold" onclick="simDisruption()">⚡ Ejecutar bucle agentico</button>
+      <div class="text-[11px] muted">Flujo: retraso ➔ recalcular ➔ re-tender ➔ notificar ➔ log.</div>
+    </div>
+    <div class="card p-4 lg:col-span-2">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-1">
+          <h3 class="font-semibold text-white">Registro de eventos del agente</h3>
+          ${tip('Cada incidente detectado y su resolucion se registra aqui con trazabilidad completa.')}
+        </div>
+        <span id="m2-logs-count" class="text-xs muted">${logs.length} eventos</span>
+      </div>
+      <div class="scroll text-xs space-y-1" id="m2-logs">
+        ${renderAgentLogsHtml(logs)}
+      </div>
+    </div>
+  </div>
+
+  <!-- MAPA INTERACTIVO ESTILO GOOGLE MAPS -->
+  <div class="card p-4">
+    <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+      <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full bg-red-500 animate-ping"></div>
+        <h3 class="font-bold text-white text-base">Mapa de Flota en Vivo · Estilo Google Maps</h3>
+        ${tip('Mapa interactivo con capas de calles, satelite de alta resolucion y vista nocturna. Haz clic en cualquier camion o centro logistico para ver telemetria e interactuar.')}
+      </div>
+
+      <!-- Filtros de la flota tipo chips -->
+      <div class="flex items-center gap-1.5 flex-wrap">
+        <button id="gmap-chip-all" onclick="setGMapFleetFilter('all')" class="gmap-chip ${gMapActiveFilter==='all'?'active':''}" data-filter="all">Todos (${deliveries.length})</button>
+        <button id="gmap-chip-ok" onclick="setGMapFleetFilter('ok')" class="gmap-chip ${gMapActiveFilter==='ok'?'active':''}" data-filter="ok">🟢 En Ruta (${nOk})</button>
+        <button id="gmap-chip-delayed" onclick="setGMapFleetFilter('delayed')" class="gmap-chip ${gMapActiveFilter==='delayed'?'active':''}" data-filter="delayed">🟡 Retrasados (${nDelayed})</button>
+        <button id="gmap-chip-stopped" onclick="setGMapFleetFilter('stopped')" class="gmap-chip ${gMapActiveFilter==='stopped'?'active':''}" data-filter="stopped">🔴 Detenidos (${nStopped})</button>
+        <button id="gmap-chip-hubs" onclick="setGMapFleetFilter('hubs')" class="gmap-chip ${gMapActiveFilter==='hubs'?'active':''}" data-filter="hubs">🏢 Hubs (${WAREHOUSE_HUBS.length})</button>
+      </div>
+    </div>
+
+    <!-- CONTENEDOR DEL MAPA CON CONTROLES FLOTANTES GOOGLE MAPS -->
+    <div id="gmap-container" class="relative w-full h-[580px] rounded-xl overflow-hidden border border-night-600 shadow-2xl bg-night-900">
+      
+      <!-- Buscador flotante superior izquierdo -->
+      <div class="absolute top-3 left-3 z-[1000] w-72 sm:w-80">
+        <div class="flex items-center bg-night-800/95 backdrop-blur border border-night-600 rounded-lg shadow-xl px-3 py-1.5">
+          <span class="text-gray-400 text-sm mr-2">🔍</span>
+          <input id="gmap-search" type="text" placeholder="Buscar envio, ciudad o hub..." oninput="handleGMapSearch(this.value)" class="w-full bg-transparent border-none text-xs text-white placeholder-gray-400 focus:outline-none p-0">
+          <button onclick="$('#gmap-search').value='';handleGMapSearch('')" class="text-gray-400 hover:text-white text-xs ml-1">✕</button>
+        </div>
+        <div id="gmap-search-results" class="bg-night-800/95 backdrop-blur border border-night-600 rounded-lg shadow-2xl mt-1 max-h-48 overflow-y-auto hidden"></div>
+      </div>
+
+      <!-- Selector de estilo de mapa flotante superior derecho -->
+      <div class="absolute top-3 right-3 z-[1000] flex items-center bg-night-800/95 backdrop-blur border border-night-600 rounded-lg shadow-xl p-1 gap-1">
+        <button id="gmap-btn-satellite" onclick="setGMapTileLayer('satellite')" class="btn text-xs py-1 px-2.5 ${gMapCurrentMode==='satellite'?'primary':''}">🛰️ Satélite HD</button>
+        <button id="gmap-btn-streets" onclick="setGMapTileLayer('streets')" class="btn text-xs py-1 px-2.5 ${gMapCurrentMode==='streets'?'primary':''}">🗺️ Calles</button>
+        <button id="gmap-btn-dark" onclick="setGMapTileLayer('dark')" class="btn text-xs py-1 px-2.5 ${gMapCurrentMode==='dark'?'primary':''}">🌙 Noche</button>
+        <span class="w-[1px] h-4 bg-night-600 mx-0.5"></span>
+        <button id="gmap-btn-traffic" onclick="toggleGMapTraffic()" class="btn text-xs py-1 px-2.5 ${gMapTrafficOn?'primary':''} font-semibold">🚦 Tráfico</button>
+      </div>
+
+      <!-- Botones de Enfoque Rápido Geográfico (Sudamérica / Mundo) -->
+      <div class="absolute top-14 right-3 z-[1000] flex items-center bg-night-800/95 backdrop-blur border border-night-600 rounded-lg shadow-xl p-1 gap-1">
+        <span class="text-[10px] uppercase font-bold text-gray-400 px-1.5">Región:</span>
+        <button onclick="resetGMapView('sa')" class="btn text-xs py-0.5 px-2 font-medium bg-night-700 hover:bg-night-600 text-cyan-300">🌎 Sudamérica</button>
+        <button onclick="resetGMapView('world')" class="btn text-xs py-0.5 px-2 font-medium bg-night-700 hover:bg-night-600 text-gray-300">🌐 Global</button>
+        <button onclick="resetGMapView('europe')" class="btn text-xs py-0.5 px-2 font-medium bg-night-700 hover:bg-night-600 text-gray-300">🌍 Europa</button>
+      </div>
+
+      <!-- Controles de navegacion flotantes inferior derecho -->
+      <div class="absolute bottom-4 right-4 z-[1000] flex flex-col gap-2">
+        <button onclick="resetGMapView('sa')" title="Centrar Sudamérica" class="w-8 h-8 rounded-lg bg-night-800/95 backdrop-blur border border-night-600 text-white flex items-center justify-center shadow-lg hover:bg-night-700 text-sm">🎯</button>
+        <div class="flex flex-col bg-night-800/95 backdrop-blur border border-night-600 rounded-lg shadow-lg overflow-hidden">
+          <button onclick="if(gLeafletMap)gLeafletMap.zoomIn()" title="Acercar" class="w-8 h-8 text-white hover:bg-night-700 font-bold flex items-center justify-center border-b border-night-700">+</button>
+          <button onclick="if(gLeafletMap)gLeafletMap.zoomOut()" title="Alejar" class="w-8 h-8 text-white hover:bg-night-700 font-bold flex items-center justify-center">−</button>
+        </div>
+      </div>
+
+      <!-- Leyenda inferior izquierda -->
+      <div class="absolute bottom-4 left-4 z-[1000] bg-night-900/90 backdrop-blur border border-night-700 rounded-lg p-2 shadow-xl text-[11px] text-gray-300 hidden sm:flex items-center gap-3">
+        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> En Horario</span>
+        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Retraso</span>
+        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span> Detenido</span>
+        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Hub Almacen</span>
+      </div>
+
+      <!-- MAPA LEAFLET -->
+      <div id="gmap-interactive" class="w-full h-full"></div>
+    </div>
+  </div>
+
+  <!-- TABLA DE ENTREGAS VINCULADA AL MAPA -->
+  <div class="card p-4 mt-4">
+    <div class="flex items-center justify-between mb-2">
+      <div class="flex items-center gap-1">
+        <h3 class="font-semibold text-white">Entregas en seguimiento</h3>
+        ${tip('Haz clic en cualquier envio para centrar automaticamente la camara de Google Maps y abrir su ficha tecnica con telemetria en vivo.')}
+      </div>
+      <span class="text-xs text-accent">💡 Haz clic en una fila para localizar en el mapa</span>
+    </div>
+    <div class="scroll">
+      <table><thead><tr><th>Envio</th><th>Transportista</th><th>Destino</th><th>Progreso</th><th>Velocidad</th><th>ETA estimada</th><th>Estado</th><th>Incidente</th><th>Accion</th></tr></thead>
+      <tbody id="m2-deliveries-tbody">${renderDeliveriesTableRows(deliveries)}</tbody></table>
+    </div>
+  </div>`);
+
+  // Inicializar mapa interactivo tras el renderizado en DOM
+  setTimeout(()=>initGoogleMap(deliveries), 50);
+}
+
+async function refreshLiveM2(){
+  if(currentTab!=='m2')return;
+  try{
+    const [deliveries,logs]=await Promise.all([
+      api('/api/routing/deliveries'),api('/api/routing/logs')
+    ]);
+    updateGMapDeliveries(deliveries);
+    const tbody=$('#m2-deliveries-tbody');
+    if(tbody)tbody.innerHTML=renderDeliveriesTableRows(deliveries);
+    const logsEl=$('#m2-logs');
+    if(logsEl)logsEl.innerHTML=renderAgentLogsHtml(logs);
+    const logsCount=$('#m2-logs-count');
+    if(logsCount)logsCount.textContent=`${logs.length} eventos`;
+
+    const nOk=deliveries.filter(d=>truckState(d)==='ok').length;
+    const nDelayed=deliveries.filter(d=>truckState(d)==='delayed').length;
+    const nStopped=deliveries.filter(d=>truckState(d)==='stopped').length;
+    if($('#gmap-chip-all'))$('#gmap-chip-all').textContent=`Todos (${deliveries.length})`;
+    if($('#gmap-chip-ok'))$('#gmap-chip-ok').textContent=`🟢 En Ruta (${nOk})`;
+    if($('#gmap-chip-delayed'))$('#gmap-chip-delayed').textContent=`🟡 Retrasados (${nDelayed})`;
+    if($('#gmap-chip-stopped'))$('#gmap-chip-stopped').textContent=`🔴 Detenidos (${nStopped})`;
+  }catch(e){
+    console.warn('Error refrescando M2 en vivo:',e);
+  }
+}
+
+async function simDisruption(){
+  const payload={shipment_id:$('#m2-ship').value,delay_min:parseFloat($('#m2-delay').value||45),reason:$('#m2-reason').value,re_tender:true};
+  const r=await api('/api/routing/simulate-disruption',{method:'POST',body:JSON.stringify(payload)});
+  const statusTxt=r.requires_approval?'🔒 Requiere aprobación humana (Gobernanza)':'✅ Re-licitación autoejecutada';
+  showToast(
+    `Bucle Agéntico · ${payload.shipment_id}`,
+    `Nuevo ETA: ${r.impact.new_eta.slice(0,16).replace('T',' ')} (+${r.impact.delay_min} min)\nImpacto estimado: ${r.impact.impact_eur}€ · Ventana violada: ${r.impact.window_violated?'Sí':'No'}\n${statusTxt}`,
+    r.requires_approval?'warn':'success'
+  );
+  await refreshLiveM2();
+  loadKPIs();
+}
+
+/* ==================== MÓDULO 3 ==================== */
+async function loadM3(){
+  const [slot,machines,orders]=await Promise.all([
+    api('/api/wms/slotting'),api('/api/wms/machines'),api('/api/wms/work-orders')
+  ]);
+  render(`
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="card p-4">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-1">
+          <h3 class="font-semibold text-white">Reubicación de stock (Slotting)</h3>
+          ${tip('Los productos de alta rotación se mueven cerca del muelle de salida para reducir tiempos de picking. El sistema sugiere movimientos automáticamente.')}
+        </div>
+        <button class="btn primary text-xs" onclick="applySlotting()">Aplicar</button>
+      </div>
+      <div class="scroll text-xs space-y-1" id="m3-slot">
+        ${slot.suggested_moves.map(m=>`<div class="flex items-center gap-2 py-1 border-b border-night-700">
+          <span class="chip cyan">${m.sku.replace('SKU-','')}</span>
+          <span class="text-gray-300 truncate">${m.name}</span>
+          <span class="muted">${m.from_zone}</span>
+          <span class="text-good">→ ${m.to_zone}</span>
+        </div>`).join('')||'<div class="muted">Sin movimientos sugeridos — distribución óptima actual.</div>'}
+        <div id="m3-slot-status" class="text-[11px] mt-2 muted"></div>
+      </div>
+    </div>
+    <div class="card p-4">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-1">
+          <h3 class="font-semibold text-white">Mantenimiento Predictivo</h3>
+          ${tip('Sensores IoT monitorean vibración y temperatura. Si un valor se desvía >3σ del comportamiento normal, se genera una orden de trabajo ANTES de que la máquina falle.')}
+        </div>
+        <button class="btn primary text-xs" onclick="simTelemetry()">▶ Simular</button>
+      </div>
+      <div class="scroll text-xs space-y-1">
+        ${machines.map(m=>`<div class="flex items-center justify-between py-1 border-b border-night-700">
+          <div>
+            <span class="font-medium text-white">${m.name}</span>
+            <span class="text-[10px] font-mono muted ml-1">(${m.machine_id})</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] muted">Umbral: ${m.threshold_vibration}g / ${m.threshold_temp}°C</span>
+            <span class="chip ${m.degraded?'amber':'green'}">${m.degraded?'degradándose':'normal'}</span>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>
+  <div class="card p-4 mt-4">
+    <div class="flex items-center justify-between mb-2">
+      <div class="flex items-center gap-1">
+        <h3 class="font-semibold text-white">Órdenes de trabajo y mantenimiento</h3>
+        ${tip('Mantenciones de la flota de camiones programadas por kilometraje (con su fecha) y órdenes predictivas del sensor IoT que detectan el fallo antes de la parada real.')}
+      </div>
+      <span class="text-xs muted">${orders.filter(o=>o.status==='open').length} abiertas de ${orders.length}</span>
+    </div>
+    <div class="scroll">
+      <table><thead><tr><th>#</th><th>Vehículo / Máquina</th><th>Tipo</th><th>Prioridad</th><th>Descripción</th><th>Fecha</th><th>Estado</th><th>Acción</th></tr></thead>
+      <tbody>${orders.map(o=>`<tr>
+        <td>${o.id}</td>
+        <td class="font-mono font-semibold text-accent">${o.machine_id}</td>
+        <td><span class="chip ${o.type==='fleet'?'amber':o.type==='predictive'?'cyan':'red'}">${o.type==='fleet'?'mant. camión':o.type==='predictive'?'predictiva':'correctiva'}</span></td>
+        <td><span class="chip ${o.priority==='high'?'red':'amber'}">${o.priority==='high'?'alta':'media'}</span></td>
+        <td class="muted text-xs">${o.description}</td>
+        <td class="muted whitespace-nowrap">${(o.created_at||'').slice(0,10)}</td>
+        <td><span class="chip ${o.status==='open'?'amber':'green'}">${o.status==='open'?'pendiente':'completada'}</span></td>
+        <td>${o.status==='open'?`<button onclick="completeWorkOrder(${o.id})" class="btn text-[11px] py-0.5 px-2 text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/10">✓ Completar</button>`:'<span class="muted text-xs">—</span>'}</td>
+      </tr>`).join('')||'<tr><td colspan=8 class="muted text-xs">Sin órdenes. Pulsa "Simular" para generar telemetría IoT.</td></tr>'}</tbody></table>
+    </div>
+  </div>`);
+}
+
+async function completeWorkOrder(orderId){
+  try{
+    await api(`/api/wms/work-orders/${orderId}/complete`,{method:'POST'});
+    showToast('Orden completada', `La orden de trabajo #${orderId} se ha marcado como completada.`, 'success');
+    loadM3();
+    loadKPIs();
+  }catch(e){
+    showToast('Error al completar orden', e.message, 'error');
+  }
+}
+
+async function simTelemetry(){
+  const r=await api('/api/wms/telemetry/simulate',{method:'POST'});
+  const msg=r.anomalies_detected>0
+    ?`${r.records} muestras · ${r.anomalies_detected} anomalías detectadas → órdenes de trabajo generadas`
+    :`${r.records} muestras procesadas · Parámetros dentro de umbral normal`;
+  showToast('Telemetría IoT Procesada', msg, r.anomalies_detected>0?'warn':'success');
+  loadTab(); loadKPIs();
+}
+
+async function applySlotting(){
+  const slot=await api('/api/wms/slotting');
+  if(slot.suggested_moves.length){
+    const r=await api('/api/wms/slotting/apply',{method:'POST',body:JSON.stringify({moves:slot.suggested_moves,region_id:slot.region_id})});
+    $('#m3-slot-status').textContent=`✅ ${r.moves_applied} movimientos aplicados hacia el muelle`;
+    showToast('Re-slotting aplicado', `${r.moves_applied} SKUs de alta rotación acercados al muelle.`, 'success');
+  }else{
+    $('#m3-slot-status').textContent='Sin movimientos necesarios.';
+    showToast('Distribución óptima', 'No hay movimientos pendientes de slotting.', 'info');
+  }
+}
+
+/* ==================== MÓDULO 4 ==================== */
+async function loadM4(){
+  const scores=await api('/api/suppliers/scores');
+  render(`
+  <div class="card p-4 mb-4">
+    <div class="flex items-center gap-1 mb-3">
+      <h3 class="font-semibold text-white">Evaluación de Riesgo de Proveedores</h3>
+      ${tip('Cada proveedor obtiene un score 0-100: 50% cumplimiento (OTIF), 30% estabilidad financiera, 20% riesgo geopolítico de su país/fábrica. Score bajo = alto riesgo.')}
+    </div>
+    <div class="scroll">
+      <table><thead><tr><th>Proveedor</th><th>Material</th><th>Ubicación</th><th>OTIF</th><th>Coste Unit.</th><th>Score</th><th>Nivel</th><th>Acción</th></tr></thead>
+      <tbody>${scores.map(s=>`<tr>
+        <td>
+          <div class="font-medium text-white">${s.name}</div>
+          <div class="text-[10px] font-mono muted">${s.supplier_id}</div>
+        </td>
+        <td>${s.material}</td>
+        <td><span class="text-gray-200">${s.country||'—'}</span>${s.city&&s.city!=='—'?`<span class="muted text-xs"> · ${s.city}</span>`:''}</td>
+        <td class="font-mono text-xs">${s.otif_rate!=null?Math.round(s.otif_rate*100)+'%':'—'}</td>
+        <td class="font-mono text-xs text-accent">${s.unit_cost!=null?s.unit_cost.toFixed(2)+' €':'—'}</td>
+        <td>
+          <div class="flex items-center gap-2">
+            <div class="w-24 bg-night-700 rounded-full h-2.5 overflow-hidden">
+              <div class="h-full rounded-full stock-bar" style="width:${s.score}%;background:${s.score<30?'#f43f5e':s.score<60?'#f59e0b':'#10b981'}"></div>
+            </div>
+            <span class="text-xs font-mono font-bold text-white">${s.score}</span>
+          </div>
+        </td>
+        <td><span class="chip ${s.score<30?'red':s.score<60?'amber':'green'}">${s.risk_level}</span></td>
+        <td><button class="btn text-xs" onclick="showAlt('${s.supplier_id}','${s.name.replace(/'/g,"\\'")}')">ver alternativas</button></td>
+      </tr>`).join('')}</tbody></table>
+    </div>
+  </div>
+  <div id="m4-alt"></div>`);
+}
+
+async function showAlt(id,name){
+  const r=await api(`/api/suppliers/alternatives/${id}`);
+  $('#m4-alt').innerHTML=`
+    <div class="card p-4">
+      <div class="flex items-center gap-2 mb-3">
+        <h3 class="font-semibold text-white">Alternativas · ${name}</h3>
+        ${r.critical?'<span class="chip red">Score crítico</span>':''}
+        ${r.requires_approval?'<span class="chip amber">🔒 cambio requiere aprobación</span>':''}
+      </div>
+      <div class="grid md:grid-cols-3 gap-3">${r.alternatives.map(a=>`
+        <div class="bg-night-700 rounded-lg p-3">
+          <div class="font-semibold text-sm">${a.name}</div>
+          <div class="text-xs muted">${a.country} · ${a.material}</div>
+          <div class="mt-2"><span class="chip ${a.score<60?'amber':'green'}">score ${a.score}</span></div>
+          <div class="text-xs mt-1 muted">Coste: ${a.unit_cost}€ (${a.cost_vs_current_pct>0?'+':''}${a.cost_vs_current_pct}%) vs actual</div>
+          <div class="text-[11px] muted mt-0.5">${a.geo_risk_label}</div>
+        </div>`).join('')||'<div class="muted text-xs">Sin alternativas disponibles para este material.</div>'}</div>
+    </div>`;
+}
+
+/* ==================== MÓDULO 5 ==================== */
+const traceStatus={
+  auto_executed:['🤖 Auto-ejecutada','green'],
+  requires_approval:['⏳ Pendiente tuya','amber'],
+  pending:['⏳ En proceso','amber'],
+  approved:['👍 Aprobada','cyan'],
+  rejected:['✕ Rechazada','red']
+};
+async function loadM5(){
+  const [matrix,pending,trace,roles]=await Promise.all([
+    api('/api/governance/matrix'),api('/api/governance/pending'),
+    api('/api/governance/trace'),api('/api/governance/roles')
+  ]);
+  if($('#role-badge'))$('#role-badge').textContent=roles.current_role.replace('_',' ');
+  if($('#role-select'))$('#role-select').value=roles.current_role;
+  render(`
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="card p-4">
+      <div class="flex items-center gap-1 mb-3">
+        <h3 class="font-semibold text-white">Matriz de decisiones</h3>
+        ${tip('Define qué puede decidir la IA sola (auto) y qué necesita tu aprobación (humano). Las decisiones de alto coste o contractual siempre requieren tu OK.')}
+      </div>
+      <div class="scroll text-xs space-y-2">
+        ${matrix.map(r=>`<div class="bg-night-700 rounded-lg p-3">
+          <div class="flex items-center justify-between"><span class="font-semibold text-gray-200">${r.decision}</span><span class="chip cyan">${r.rule_id}</span></div>
+          <div class="muted mt-1">🤖 Auto: ${r.auto_threshold}</div>
+          <div class="text-warn mt-0.5">👤 Tú apruebas: ${r.requires_approval_when}</div>
+          <div class="muted mt-0.5 text-[11px]">Responsable: ${r.owner}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+    <div class="card p-4">
+      <div class="flex items-center gap-1 mb-3">
+        <h3 class="font-semibold text-white">Sugerencias de la IA</h3>
+        ${tip('Cada sugerencia muestra su razonamiento (factores), el impacto económico estimado y la confianza del modelo. Si requiere aprobación humana puedes aprobarla o rechazarla aquí mismo.')}
+        ${pending.length?'<span class="chip amber ml-1">'+pending.length+' pendientes</span>':''}
+      </div>
+      <div class="scroll text-xs space-y-2" id="m5-pending">
+        ${trace.map(p=>{
+          const sm=traceStatus[p.status]||['',''];
+          return `<div class="bg-night-700 rounded-lg p-3">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-gray-200 font-medium">${p.description}</span>
+              <span class="chip ${sm[1]} shrink-0">${sm[0]}</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 mt-1.5 text-[11px] muted">
+              <span class="chip cyan">${p.module}</span>
+              <span>Impacto: <b class="text-warn">${p.impact_eur}€</b></span>
+              <span>Confianza: <b>${(p.confidence*100).toFixed(0)}%</b></span>
+              <span class="text-[10px]">${(p.created_at||'').slice(0,16).replace('T',' ')}</span>
+            </div>
+            ${Object.keys(p.factors||{}).length?`<div class="text-[10px] muted mt-1">Razón: ${Object.entries(p.factors).slice(0,3).map(([k,v])=>`${k}=${v}`).join(' · ')}</div>`:''}
+            ${p.status==='requires_approval'?`<div class="mt-2 flex gap-2">
+              <button class="btn primary text-xs" onclick="decide(${p.id},'approve')">✓ Aprobar</button>
+              <button class="btn crit text-xs" onclick="decide(${p.id},'reject')">✕ Rechazar</button>
+            </div>`:''}
+          </div>`;
+        }).join('')||'<div class="muted">Sin sugerencias todavía. Ejecuta la demo para que la IA genere recomendaciones.</div>'}
+      </div>
+    </div>
+  </div>
+  <div class="card p-4 mt-4">
+    <div class="flex items-center gap-1 mb-2">
+      <h3 class="font-semibold text-white">Trazabilidad de decisiones</h3>
+      ${tip('Cada acción de la IA queda registrada con explicabilidad: qué datos usó, qué factores pesaron más, y su nivel de confianza. Esto evita "alucinaciones" de la IA.')}
+    </div>
+    <div class="scroll">
+      <table><thead><tr><th>#</th><th>Módulo</th><th>Acción</th><th>Impacto</th><th>Confianza</th><th>Estado</th><th>Factores</th></tr></thead>
+      <tbody>${trace.map(t=>`<tr>
+        <td>${t.id}</td>
+        <td><span class="chip cyan">${t.module}</span></td>
+        <td class="text-gray-200">${t.action}</td>
+        <td class="text-warn">${t.impact_eur}€</td>
+        <td>${(t.confidence*100).toFixed(0)}%</td>
+        <td><span class="chip ${t.status==='approved'?'green':t.status==='requires_approval'?'amber':'red'}">${t.status==='approved'?'aprobado':t.status==='auto_executed'?'auto-ej.':t.status==='rejected'?'rechazado':'pendiente'}</span></td>
+        <td class="muted text-[11px] max-w-[180px] truncate" title='${JSON.stringify(t.factors||{}).replace(/'/g,"\\'")}'>${Object.entries(t.factors||{}).slice(0,2).map(([k,v])=>`${k}=${typeof v==='number'?v.toFixed?Number(v.toFixed(2)):v:v}`).join(' · ')}</td>
+      </tr>`).join('')}</tbody></table>
+    </div>
+  </div>`);
+}
+
+async function decide(id,action){
+  try{
+    await api(`/api/governance/${action}/${id}`,{method:'POST',body:JSON.stringify({})});
+    showToast(action==='approve'?'Recomendación aprobada':'Recomendación rechazada', `Decisión #${id} registrada en el log de auditoría.`, action==='approve'?'success':'warn');
+    loadTab(); loadKPIs();
+  }catch(e){
+    showToast('Permiso denegado (RBAC)', e.message, 'error');
+  }
+}
+
+
+/* ==================== PESTAÑA 6: CARGAR STOCK ==================== */
+let cachedStockRows=[];
+let stockCurrentMode='add';
+
+async function loadStockTab(){
+  const [summary,skus,regions,zones,stock]=await Promise.all([
+    api('/api/wms/stock/summary'),
+    api('/api/demand/skus'),
+    api('/api/demand/regions'),
+    api('/api/wms/zones'),
+    api('/api/demand/stock')
+  ]);
+  cachedStockRows=stock||[];
+
+  render(`
+  <!-- CABECERA DE STOCK -->
+  <div class="mb-5 bg-night-800/60 p-4 rounded-xl border border-night-700/80 shadow-md">
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-600/30 border border-accent/40 flex items-center justify-center text-accent text-2xl shadow-inner">
+          📦
+        </div>
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            Gestión y Carga de Stock
+            <span class="chip cyan text-[11px] py-0.5 px-2">v2.0 Inteligente</span>
+          </h2>
+          <p class="text-xs text-gray-400">Actualiza existencias al instante mediante archivo Excel, CSV o registro manual rápido.</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <div class="dropdown relative inline-block">
+          <button onclick="downloadStockTemplateExcel()" class="btn bg-emerald-500/10 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/20 text-xs font-semibold flex items-center gap-2 shadow-sm">
+            <span>📗</span> Descargar Plantilla Excel (.xlsx)
+          </button>
+        </div>
+        <button onclick="downloadStockTemplate()" class="btn text-xs font-medium flex items-center gap-1.5 text-gray-300 hover:text-white">
+          <span>📄</span> Plantilla CSV
+        </button>
+        <button onclick="loadStockTab()" class="btn primary text-xs font-semibold flex items-center gap-1.5">
+          <span>🔄</span> Actualizar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPIS DE STOCK INTERACTIVOS -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+    <div class="card p-3.5 border-night-700/80 hover:border-accent/40 transition-colors">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-medium text-gray-400">Existencias Totales</span>
+        <span class="text-base">📊</span>
+      </div>
+      <div id="kpi-stock-units" class="text-2xl font-bold text-accent my-1 font-mono">${(summary.total_units||0).toLocaleString()}</div>
+      <div class="text-[11px] text-emerald-400 flex items-center gap-1">● Unidades disponibles</div>
+    </div>
+    <div class="card p-3.5 border-night-700/80 hover:border-accent/40 transition-colors">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-medium text-gray-400">Variedad de Artículos</span>
+        <span class="text-base">🏷️</span>
+      </div>
+      <div id="kpi-stock-skus" class="text-2xl font-bold text-white my-1 font-mono">${summary.total_skus||0}</div>
+      <div class="text-[11px] text-gray-400">SKUs registrados activos</div>
+    </div>
+    <div class="card p-3.5 border-night-700/80 hover:border-accent/40 transition-colors">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-medium text-gray-400">Almacenes Conectados</span>
+        <span class="text-base">🏬</span>
+      </div>
+      <div id="kpi-stock-regions" class="text-2xl font-bold text-emerald-400 my-1 font-mono">${(summary.regions||[]).length}</div>
+      <div class="text-[11px] text-gray-400">Puntos de distribución</div>
+    </div>
+    <div id="kpi-stock-crit-card" class="card p-3.5 border-night-700/80 ${summary.critical_count>0?'border-crit/50 bg-crit/5':''} transition-colors">
+      <div class="flex items-center justify-between">
+        <span id="kpi-stock-crit-label" class="text-xs font-medium ${summary.critical_count>0?'text-rose-300':'text-gray-400'}">Alertas de Reposición</span>
+        <span id="kpi-stock-crit-icon" class="text-base">${summary.critical_count>0?'⚠️':'✅'}</span>
+      </div>
+      <div id="kpi-stock-crit" class="text-2xl font-bold ${summary.critical_count>0?'text-crit':'text-emerald-400'} my-1 font-mono">${summary.critical_count||0}</div>
+      <div id="kpi-stock-crit-sub" class="text-[11px] ${summary.critical_count>0?'text-rose-400 font-semibold':'text-emerald-400'}">${summary.critical_count>0?'Artículos bajo punto crítico':'Todos en nivel óptimo'}</div>
+    </div>
+  </div>
+
+  <!-- SECCIÓN PRINCIPAL DE CARGA CON PESTAÑAS INTUITIVAS -->
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-5">
+    
+    <!-- PANEL DE CARGA INTUITIVO (IZQUIERDA/SUPERIOR) -->
+    <div class="lg:col-span-7 card p-5 space-y-4">
+      <div class="flex items-center justify-between border-b border-night-700 pb-3">
+        <div>
+          <h3 class="font-bold text-white text-base flex items-center gap-2">
+            <span>⚡</span> Cargar y Actualizar Inventario
+          </h3>
+          <p class="text-xs text-gray-400">Elige la forma más cómoda: sube un Excel/CSV o ajusta manualmente.</p>
+        </div>
+        <!-- Selector de modo de carga -->
+        <div class="flex bg-night-900 p-1 rounded-lg border border-night-700 text-xs">
+          <button id="btn-tab-upload" onclick="switchStockInputMethod('file')" class="px-3 py-1 rounded-md font-semibold transition-all bg-accent/20 text-accent border border-accent/40 shadow-sm flex items-center gap-1.5">
+            <span>📁</span> Archivo Excel / CSV
+          </button>
+          <button id="btn-tab-manual" onclick="switchStockInputMethod('manual')" class="px-3 py-1 rounded-md font-medium text-gray-400 hover:text-white transition-all flex items-center gap-1.5">
+            <span>✏️</span> Entrada Manual
+          </button>
+        </div>
+      </div>
+
+      <!-- MÉTODO 1: CARGA POR ARCHIVO EXCEL / CSV CON DRAG & DROP -->
+      <div id="stock-method-file" class="space-y-4">
+        <div id="stock-drop-area" class="drop-zone p-6 text-center cursor-pointer transition-all"
+             onclick="$('#stock-file-input').click()"
+             ondragover="handleStockDragOver(event)"
+             ondragleave="handleStockDragLeave(event)"
+             ondrop="handleStockDrop(event)">
+          <div class="w-14 h-14 mx-auto mb-2 rounded-2xl bg-night-800 border border-night-600 flex items-center justify-center text-3xl shadow-inner">
+            📗
+          </div>
+          <div class="text-sm font-bold text-white mb-1">
+            Arrastra tu archivo Excel <span class="text-accent font-mono font-bold">.xlsx / .xls</span> o <span class="text-accent font-mono font-bold">.csv</span> aquí
+          </div>
+          <p class="text-xs text-gray-400 max-w-md mx-auto">
+            o haz clic para explorar en tu ordenador. Detecta automáticamente columnas de Producto, Región, Cantidad y Punto Mínimo.
+          </p>
+          <input id="stock-file-input" type="file" accept=".xlsx,.xls,.csv,.txt" onchange="handleStockFileSelected(event)" class="hidden">
+        </div>
+
+        <!-- Archivo seleccionado (Badge visual) -->
+        <div id="stock-selected-file-info" class="hidden p-3 bg-night-900 rounded-lg border border-night-700 flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <span id="stock-file-icon" class="text-2xl">📗</span>
+            <div>
+              <div id="stock-file-name" class="text-xs font-bold text-white font-mono">archivo.xlsx</div>
+              <div id="stock-file-size" class="text-[10px] text-gray-400">0 KB · Listo para procesar</div>
+            </div>
+          </div>
+          <button onclick="clearStockSelectedFile()" class="btn text-xs text-gray-400 hover:text-rose-400 py-1 px-2 border-night-700">
+            ✕ Quitar
+          </button>
+        </div>
+
+        <!-- Opciones de importación -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-night-900/60 rounded-lg border border-night-700/60 text-xs">
+          <div>
+            <span class="block text-gray-400 font-medium mb-1.5">Efecto en el inventario:</span>
+            <div class="flex gap-4">
+              <label class="flex items-center gap-1.5 text-gray-300 cursor-pointer">
+                <input type="radio" name="csv-mode" value="add" checked class="text-accent">
+                <span class="font-medium text-white">➕ Sumar unidades</span>
+              </label>
+              <label class="flex items-center gap-1.5 text-gray-300 cursor-pointer">
+                <input type="radio" name="csv-mode" value="set" class="text-accent">
+                <span>🟰 Reemplazar valor</span>
+              </label>
+            </div>
+          </div>
+          <div class="text-right sm:text-right flex items-center justify-start sm:justify-end">
+            <a href="javascript:void(0)" onclick="toggleStockManualTextarea()" class="text-accent hover:underline text-[11px] flex items-center gap-1">
+              <span>📝</span> Pegar texto / CSV plano
+            </a>
+          </div>
+        </div>
+
+        <!-- Textarea colapsable opcional -->
+        <div id="stock-csv-textarea-container" class="hidden space-y-1">
+          <div class="flex justify-between items-center text-[11px] text-gray-400">
+            <span>Pegar texto delimitado por comas:</span>
+            <span class="text-accent cursor-pointer" onclick="fillSampleStockCsv()">Rellenar ejemplo</span>
+          </div>
+          <textarea id="stock-csv-textarea" rows="3" placeholder="sku,region_id,warehouse_zone,quantity,reorder_point&#10;SKU-PLS-001,R-MAD,Z-STO-A,120,60" class="w-full font-mono text-xs"></textarea>
+        </div>
+
+        <button id="btn-process-file" onclick="processSelectedStockFile()" class="btn primary w-full font-bold py-2.5 shadow-lg flex items-center justify-center gap-2 text-sm">
+          <span>⚡</span> Cargar y Actualizar Stock Ahora
+        </button>
+
+        <div id="stock-csv-feedback" class="text-xs"></div>
+      </div>
+
+      <!-- MÉTODO 2: ENTRADA MANUAL RÁPIDA -->
+      <div id="stock-method-manual" class="space-y-3 hidden">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1">Producto (SKU)</label>
+            <select id="stock-sku" onchange="previewStockSelection()" class="w-full font-medium">
+              ${skus.map(s=>`<option value="${s.sku}">${s.sku} · ${s.name}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1">Centro Logístico / Región</label>
+            <select id="stock-region" onchange="previewStockSelection()" class="w-full font-medium">
+              ${regions.map(r=>`<option value="${r.region_id}">${r.region_id} · ${r.name}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Zona Almacén</label>
+            <select id="stock-zone" class="w-full text-xs">
+              ${zones.map(z=>`<option value="${z.zone_id}">${z.zone_id} (${z.name})</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Cantidad</label>
+            <input id="stock-qty" type="number" min="1" value="25" class="w-full font-mono font-bold text-sm text-accent">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Punto Mínimo</label>
+            <input id="stock-reorder" type="number" placeholder="50" class="w-full text-xs font-mono" value="50">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Tipo de Movimiento</label>
+          <div class="grid grid-cols-3 gap-2">
+            <button type="button" id="stock-mode-add" onclick="setStockMode('add')" class="btn primary text-xs py-2 text-center font-bold">
+              ➕ Entrada (+)
+            </button>
+            <button type="button" id="stock-mode-sub" onclick="setStockMode('subtract')" class="btn text-xs py-2 text-center font-medium">
+              ➖ Salida (−)
+            </button>
+            <button type="button" id="stock-mode-set" onclick="setStockMode('set')" class="btn text-xs py-2 text-center font-medium">
+              🟰 Fijar (=)
+            </button>
+          </div>
+          <input type="hidden" id="stock-mode-val" value="add">
+        </div>
+
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Referencia o Albarán (opcional)</label>
+          <input id="stock-notes" type="text" placeholder="Ej: Pedido Recepción #REC-982" class="w-full text-xs">
+        </div>
+
+        <div id="stock-current-preview" class="p-3 bg-night-900 rounded-lg border border-night-700 text-xs">
+          <span class="muted">Selecciona un producto y región para ver existencias actuales.</span>
+        </div>
+
+        <button onclick="submitStockManual()" class="btn primary w-full font-bold py-2.5 shadow-lg flex items-center justify-center gap-2 text-sm">
+          <span>💾</span> Guardar Movimiento en Stock
+        </button>
+        <div id="stock-manual-feedback" class="text-xs"></div>
+      </div>
+    </div>
+
+    <!-- PANEL DE AYUDA Y GUÍA VISUAL RÁPIDA (DERECHA) -->
+    <div class="lg:col-span-5 card p-5 flex flex-col justify-between space-y-4">
+      <div>
+        <div class="flex items-center gap-2 border-b border-night-700 pb-2 mb-3">
+          <span class="text-lg">💡</span>
+          <h4 class="font-bold text-white text-sm">¿Cómo preparar tu archivo Excel?</h4>
+        </div>
+        <p class="text-xs text-gray-300 leading-relaxed mb-3">
+          Puedes subir cualquier planilla de Excel (<b class="text-emerald-400 font-mono">.xlsx</b>) o archivo plano con las siguientes columnas en la primera fila:
+        </p>
+
+        <div class="space-y-2 text-xs">
+          <div class="p-2.5 bg-night-900 rounded-lg border border-night-700 font-mono text-[11px] space-y-1">
+            <div class="flex justify-between border-b border-night-800 pb-1 font-bold text-accent">
+              <span>Columna</span>
+              <span>Ejemplo</span>
+            </div>
+            <div class="flex justify-between text-gray-300">
+              <span class="text-white font-semibold">sku</span>
+              <span>SKU-PLS-001</span>
+            </div>
+            <div class="flex justify-between text-gray-300">
+              <span class="text-white font-semibold">region_id</span>
+              <span>R-MAD, R-BCN...</span>
+            </div>
+            <div class="flex justify-between text-gray-300">
+              <span class="text-white font-semibold">quantity</span>
+              <span class="text-accent font-bold">150</span>
+            </div>
+            <div class="flex justify-between text-gray-300">
+              <span class="text-gray-400">warehouse_zone</span>
+              <span class="text-gray-400">Z-STO-A (opcional)</span>
+            </div>
+            <div class="flex justify-between text-gray-300">
+              <span class="text-gray-400">reorder_point</span>
+              <span class="text-gray-400">60 (opcional)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 p-3 bg-night-900/50 rounded-lg border border-night-800 text-[11px] text-gray-400 space-y-1.5">
+          <div class="flex items-center gap-1.5 text-good font-semibold">
+            <span>✨</span> Sin nombres rígidos
+          </div>
+          <p>
+            Reconoce encabezados en español o inglés (<code class="text-gray-300">producto</code>, <code class="text-gray-300">almacen</code>, <code class="text-gray-300">cantidad</code>, <code class="text-gray-300">minimo</code>).
+          </p>
+        </div>
+      </div>
+
+      <div class="pt-2 border-t border-night-700/60 flex items-center justify-between">
+        <span class="text-xs text-gray-400">¿No tienes plantilla lista?</span>
+        <button onclick="downloadStockTemplateExcel()" class="btn bg-emerald-500/10 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/20 text-xs font-semibold flex items-center gap-1.5">
+          <span>📗</span> Descargar Modelo Excel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLA DE INVENTARIO EN VIVO -->
+  <div class="card p-4">
+    <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
+      <div>
+      <div class="flex items-center gap-2.5">
+        <div class="relative flex h-3 w-3">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+        </div>
+        <div>
+          <h3 class="font-bold text-white text-base flex items-center gap-2">
+            Inventario de Existencias en Tiempo Real
+            <span id="stock-items-count" class="chip cyan text-[11px] font-mono">${cachedStockRows.length} registros</span>
+          </h3>
+          <p class="text-xs text-gray-400">Monitor en vivo con auto-sincronización activa (refresco cada 4s) y ajuste instantáneo</p>
+        </div>
+      </div>
+
+      <!-- Buscador y Filtros -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <input id="stock-search" type="text" placeholder="🔍 Buscar SKU o producto..." oninput="filterStockTable()" class="text-xs w-44 sm:w-56 bg-night-900 border-night-700">
+        
+        <select id="stock-filter-reg" onchange="filterStockTable()" class="text-xs bg-night-900 border-night-700">
+          <option value="">Todas las Regiones</option>
+          ${regions.map(r=>`<option value="${r.region_id}">${r.name}</option>`).join('')}
+        </select>
+
+        <select id="stock-filter-stat" onchange="filterStockTable()" class="text-xs bg-night-900 border-night-700">
+          <option value="">Todos los Estados</option>
+          <option value="crit">Solo Críticos</option>
+          <option value="low">Nivel Bajo</option>
+          <option value="ok">Nivel Óptimo</option>
+        </select>
+
+        <button onclick="refreshLiveStock(true)" class="btn text-xs py-1.5 px-2.5 text-accent border-night-700 hover:bg-night-700 flex items-center gap-1 font-semibold" title="Sincronizar ahora">
+          <span>⚡</span> Refrescar
+        </button>
+      </div>
+    </div>
+
+    <div class="scroll overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="bg-night-800/80 text-gray-400 text-xs uppercase tracking-wider">
+            <th class="py-2.5 px-3">SKU</th>
+            <th class="py-2.5 px-3">Producto</th>
+            <th class="py-2.5 px-3">Almacén</th>
+            <th class="py-2.5 px-3">Zona</th>
+            <th class="py-2.5 px-3 text-right">Stock Físico</th>
+            <th class="py-2.5 px-3 w-40">Nivel de Capacidad</th>
+            <th class="py-2.5 px-3 text-center">Pto. Reorden</th>
+            <th class="py-2.5 px-3 text-center">Estado</th>
+            <th class="py-2.5 px-3 text-center">Acción Rápida</th>
+          </tr>
+        </thead>
+        <tbody id="stock-table-tbody" class="divide-y divide-night-700/50">
+          ${renderStockTableRows(cachedStockRows)}
+        </tbody>
+      </table>
+    </div>
+  </div>`);
+
+  previewStockSelection();
+}
+
+function setStockMode(mode){
+  stockCurrentMode=mode;
+  $('#stock-mode-val').value=mode;
+  ['add','sub','set'].forEach(m=>{
+    const b=$('#stock-mode-'+m);
+    if(b){
+      b.classList.toggle('primary', (m==='add'&&mode==='add')||(m==='sub'&&mode==='subtract')||(m==='set'&&mode==='set'));
+    }
+  });
+}
+
+function previewStockSelection(){
+  const skuSel=$('#stock-sku');
+  const regSel=$('#stock-region');
+  const prevDiv=$('#stock-current-preview');
+  if(!skuSel||!regSel||!prevDiv)return;
+  const sku=skuSel.value;
+  const reg=regSel.value;
+  const found=cachedStockRows.find(r=>r.sku===sku&&r.region_id===reg);
+  if(found){
+    const pct=Math.min(100,parseInt(found.fill_pct)||0);
+    const color=pct<30?'text-crit':pct<60?'text-warn':'text-good';
+    prevDiv.innerHTML=`
+      <div class="flex items-center justify-between text-xs">
+        <span>Stock actual en <b>${reg}</b>: <b class="${color} font-mono text-sm">${found.on_hand} unidades</b></span>
+        <span class="muted">Zona: <b>${found.warehouse_zone||'Z-STO-A'}</b> · Reorden: <b>${found.reorder_point}u</b></span>
+      </div>`;
+    if($('#stock-reorder'))$('#stock-reorder').value=found.reorder_point||50;
+    if($('#stock-zone'))$('#stock-zone').value=found.warehouse_zone||'Z-STO-A';
+  }else{
+    prevDiv.innerHTML=`<span class="muted text-xs">Sin existencias previas registradas para este producto en <b>${reg}</b>. Se creara nuevo registro.</span>`;
+  }
+}
+
+async function submitStockManual(){
+  const fb=$('#stock-manual-feedback');
+  fb.innerHTML='<span class="text-accent">Guardando...</span>';
+  try{
+    const sku=$('#stock-sku').value;
+    const region_id=$('#stock-region').value;
+    const warehouse_zone=$('#stock-zone').value;
+    const quantity=parseInt($('#stock-qty').value)||0;
+    const mode=$('#stock-mode-val').value||'add';
+    const reorder_point=parseInt($('#stock-reorder').value)||50;
+    const notes=$('#stock-notes').value;
+
+    const res=await api('/api/wms/stock/update',{
+      method:'POST',
+      body:JSON.stringify({sku,region_id,warehouse_zone,quantity,mode,reorder_point,notes})
+    });
+
+    fb.innerHTML=`<span class="text-good font-semibold">✅ Stock actualizado: ${res.sku} en ${res.region_id} ahora tiene ${res.on_hand} unidades (${res.mode==='add'?'+':res.mode==='subtract'?'-':'='}${res.quantity_delta})</span>`;
+    loadKPIs();
+    // Actualizar tabla localmente
+    const stock=await api('/api/demand/stock');
+    cachedStockRows=stock||[];
+    filterStockTable();
+    previewStockSelection();
+  }catch(e){
+    fb.innerHTML=`<span class="text-crit">❌ Error: ${e.message}</span>`;
+  }
+}
+
+async function quickAdjustStock(sku,region_id,delta){
+  try{
+    const mode=delta>0?'add':'subtract';
+    const qty=Math.abs(delta);
+    await api('/api/wms/stock/update',{
+      method:'POST',
+      body:JSON.stringify({sku,region_id,quantity:qty,mode})
+    });
+    const stock=await api('/api/demand/stock');
+    cachedStockRows=stock||[];
+    filterStockTable();
+    previewStockSelection();
+    loadKPIs();
+  }catch(e){
+    alert('Error al ajustar stock: '+e.message);
+  }
+}
+
+function renderStockTableRows(rows){
+  if(!rows||rows.length===0){
+    return '<tr><td colspan="9" class="text-center py-4 muted">No hay registros de inventario con los filtros actuales.</td></tr>';
+  }
+  return rows.map(r=>{
+    const pct=Math.min(100,Math.max(0,parseInt(r.fill_pct)||0));
+    const isCrit=pct<30;
+    const isLow=pct>=30&&pct<60;
+    const barBg=isCrit?'bg-red-500':isLow?'bg-amber-500':'bg-emerald-500';
+    const chipClass=isCrit?'red':isLow?'amber':'green';
+    const chipText=isCrit?'⚠ Critico':isLow?'Bajo':'Optimo';
+
+    return `<tr>
+      <td class="font-mono text-accent font-bold">${r.sku}</td>
+      <td>
+        <div class="text-white font-medium truncate max-w-[180px]">${r.name}</div>
+        <div class="text-[10px] muted capitalize">${r.category||'general'}</div>
+      </td>
+      <td><span class="font-semibold text-gray-200">${r.region_id}</span></td>
+      <td><span class="chip cyan text-[10px]">${r.warehouse_zone||'Z-STO-A'}</span></td>
+      <td class="text-right font-mono font-bold text-base text-white">${r.on_hand}</td>
+      <td>
+        <div class="flex items-center gap-1.5">
+          <div class="flex-1 bg-night-700 rounded-full h-2 overflow-hidden">
+            <div class="${barBg} h-full rounded-full transition-all" style="width:${pct}%"></div>
+          </div>
+          <span class="text-[10px] muted font-mono w-7 text-right">${pct}%</span>
+        </div>
+      </td>
+      <td class="font-mono text-gray-400">${r.reorder_point||0}</td>
+      <td><span class="chip ${chipClass}">${chipText}</span></td>
+      <td>
+        <div class="flex items-center gap-1">
+          <button onclick="quickAdjustStock('${r.sku}','${r.region_id}',10)" class="btn text-[10px] py-0.5 px-1.5" title="Sumar 10">+10</button>
+          <button onclick="quickAdjustStock('${r.sku}','${r.region_id}',50)" class="btn text-[10px] py-0.5 px-1.5" title="Sumar 50">+50</button>
+          <button onclick="quickAdjustStock('${r.sku}','${r.region_id}',-10)" class="btn text-[10px] py-0.5 px-1.5" title="Restar 10">-10</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterStockTable(){
+  const q=($('#stock-search')?$('#stock-search').value:'').trim().toLowerCase();
+  const reg=$('#stock-filter-reg')?$('#stock-filter-reg').value:'';
+  const stat=$('#stock-filter-stat')?$('#stock-filter-stat').value:'';
+
+  let filtered=cachedStockRows.filter(r=>{
+    if(q){
+      const matchSku=(r.sku||'').toLowerCase().includes(q);
+      const matchName=(r.name||'').toLowerCase().includes(q);
+      if(!matchSku&&!matchName)return false;
+    }
+    if(reg&&r.region_id!==reg)return false;
+    if(stat){
+      const pct=Math.min(100,parseInt(r.fill_pct)||0);
+      if(stat==='crit'&&pct>=30)return false;
+      if(stat==='low'&&(pct<30||pct>=60))return false;
+      if(stat==='ok'&&pct<60)return false;
+    }
+    return true;
+  });
+
+  const tbody=$('#stock-table-tbody');
+  if(tbody)tbody.innerHTML=renderStockTableRows(filtered);
+  const countEl=$('#stock-items-count');
+  if(countEl)countEl.innerText=`${filtered.length} de ${cachedStockRows.length} registros`;
+}
+
+async function refreshLiveStock(notify=false){
+  try{
+    const [stock,summary]=await Promise.all([
+      api('/api/demand/stock'),
+      api('/api/wms/stock/summary')
+    ]);
+    if(stock && Array.isArray(stock)){
+      cachedStockRows=stock;
+      filterStockTable();
+      previewStockSelection();
+    }
+    if(summary){
+      // Actualizar KPIs de stock en vivo
+      const unitsEl = $('#kpi-stock-units');
+      if(unitsEl && summary.total_units !== undefined){
+        unitsEl.innerText = Number(summary.total_units).toLocaleString();
+      }
+      const skusEl = $('#kpi-stock-skus');
+      if(skusEl && summary.total_skus !== undefined){
+        skusEl.innerText = summary.total_skus;
+      }
+      const regsEl = $('#kpi-stock-regions');
+      if(regsEl && summary.regions){
+        regsEl.innerText = summary.regions.length;
+      }
+      const critEl = $('#kpi-stock-crit');
+      const critSub = $('#kpi-stock-crit-sub');
+      const critCard = $('#kpi-stock-crit-card');
+      const critIcon = $('#kpi-stock-crit-icon');
+      const critLabel = $('#kpi-stock-crit-label');
+      if(critEl && summary.critical_count !== undefined){
+        const count = summary.critical_count;
+        critEl.innerText = count;
+        critEl.className = `text-2xl font-bold ${count > 0 ? 'text-crit' : 'text-emerald-400'} my-1 font-mono`;
+        if(critSub) critSub.innerText = count > 0 ? 'Artículos bajo punto crítico' : 'Todos en nivel óptimo';
+        if(critSub) critSub.className = `text-[11px] ${count > 0 ? 'text-rose-400 font-semibold' : 'text-emerald-400'}`;
+        if(critCard) {
+          critCard.classList.toggle('border-crit/50', count > 0);
+          critCard.classList.toggle('bg-crit/5', count > 0);
+        }
+        if(critIcon) critIcon.innerText = count > 0 ? '⚠️' : '✅';
+        if(critLabel) critLabel.className = `text-xs font-medium ${count > 0 ? 'text-rose-300' : 'text-gray-400'}`;
+      }
+    }
+  }catch(e){
+    console.warn('Error en auto-sincronización de stock:', e);
+    if(notify) alert('Error al refrescar stock: ' + e.message);
+  }
+}
+
+let selectedStockFile = null;
+
+function switchStockInputMethod(method){
+  const fileSection = $('#stock-method-file');
+  const manualSection = $('#stock-method-manual');
+  const btnFile = $('#btn-tab-upload');
+  const btnManual = $('#btn-tab-manual');
+
+  if(method === 'file'){
+    fileSection.classList.remove('hidden');
+    manualSection.classList.add('hidden');
+    btnFile.className = 'px-3 py-1 rounded-md font-semibold transition-all bg-accent/20 text-accent border border-accent/40 shadow-sm flex items-center gap-1.5';
+    btnManual.className = 'px-3 py-1 rounded-md font-medium text-gray-400 hover:text-white transition-all flex items-center gap-1.5';
+  } else {
+    fileSection.classList.add('hidden');
+    manualSection.classList.remove('hidden');
+    btnManual.className = 'px-3 py-1 rounded-md font-semibold transition-all bg-accent/20 text-accent border border-accent/40 shadow-sm flex items-center gap-1.5';
+    btnFile.className = 'px-3 py-1 rounded-md font-medium text-gray-400 hover:text-white transition-all flex items-center gap-1.5';
+  }
+}
+
+function handleStockDragOver(e){
+  e.preventDefault();
+  e.stopPropagation();
+  const zone = $('#stock-drop-area');
+  if(zone) zone.classList.add('dragover');
+}
+
+function handleStockDragLeave(e){
+  e.preventDefault();
+  e.stopPropagation();
+  const zone = $('#stock-drop-area');
+  if(zone) zone.classList.remove('dragover');
+}
+
+function handleStockDrop(e){
+  e.preventDefault();
+  e.stopPropagation();
+  const zone = $('#stock-drop-area');
+  if(zone) zone.classList.remove('dragover');
+  if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0){
+    setStockSelectedFile(e.dataTransfer.files[0]);
+  }
+}
+
+function handleStockFileSelected(e){
+  const file = e.target.files && e.target.files[0];
+  if(file){
+    setStockSelectedFile(file);
+  }
+}
+
+function setStockSelectedFile(file){
+  selectedStockFile = file;
+  const info = $('#stock-selected-file-info');
+  const nameEl = $('#stock-file-name');
+  const sizeEl = $('#stock-file-size');
+  const iconEl = $('#stock-file-icon');
+  
+  if(!info) return;
+
+  const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+  iconEl.innerText = isExcel ? '📗' : '📄';
+  nameEl.innerText = file.name;
+  sizeEl.innerText = `${(file.size / 1024).toFixed(1)} KB · ${isExcel ? 'Libro de Excel' : 'Archivo CSV / Texto'}`;
+  info.classList.remove('hidden');
+
+  // Si es CSV o TXT, cargar texto en el textarea de respaldo por si el usuario quiere inspeccionarlo
+  if(!isExcel){
+    const reader = new FileReader();
+    reader.onload = evt => {
+      const ta = $('#stock-csv-textarea');
+      if(ta) ta.value = evt.target.result;
+    };
+    reader.readAsText(file);
+  }
+}
+
+function clearStockSelectedFile(){
+  selectedStockFile = null;
+  const input = $('#stock-file-input');
+  if(input) input.value = '';
+  const info = $('#stock-selected-file-info');
+  if(info) info.classList.add('hidden');
+}
+
+function toggleStockManualTextarea(){
+  const c = $('#stock-csv-textarea-container');
+  if(c) c.classList.toggle('hidden');
+}
+
+function fillSampleStockCsv(){
+  const c = $('#stock-csv-textarea-container');
+  if(c) c.classList.remove('hidden');
+  $('#stock-csv-textarea').value =
+`sku,region_id,warehouse_zone,quantity,reorder_point
+SKU-PLS-001,R-MAD,Z-STO-A,150,60
+SKU-PLS-002,R-BCN,Z-STO-B,80,50
+SKU-BAT-001,R-VLC,Z-PICK,120,40
+SKU-TAL-001,R-SEV,Z-STO-A,95,45
+SKU-ACE-001,R-BIL,Z-STO-B,200,80`;
+}
+
+function downloadStockTemplate(){
+  window.open('/api/wms/stock/template','_blank');
+}
+
+function downloadStockTemplateExcel(){
+  window.open('/api/wms/stock/template-excel','_blank');
+}
+
+async function processSelectedStockFile(){
+  const fb = $('#stock-csv-feedback');
+  fb.innerHTML = '<div class="p-3 bg-night-900 rounded border border-night-700 text-accent flex items-center gap-2"><span class="animate-spin">⏳</span> Procesando archivo de inventario...</div>';
+
+  const modeRadio = document.querySelector('input[name="csv-mode"]:checked');
+  const mode = modeRadio ? modeRadio.value : 'add';
+
+  // Si hay un archivo seleccionado directamente (drag & drop o selector)
+  if(selectedStockFile){
+    const isExcel = selectedStockFile.name.endsWith('.xlsx') || selectedStockFile.name.endsWith('.xls');
+    const formData = new FormData();
+    formData.append('file', selectedStockFile);
+
+    try {
+      const url = isExcel ? `/api/wms/stock/import-excel?mode=${mode}` : `/api/wms/stock/import-csv?mode=${mode}`;
+      const res = await fetch(API + url, {
+        method: 'POST',
+        body: formData
+      });
+
+      if(!res.ok){
+        const errText = await res.text();
+        throw new Error(errText);
+      }
+      const data = await res.json();
+      displayImportResult(data, isExcel ? 'Excel' : 'CSV');
+    } catch(err){
+      fb.innerHTML = `<div class="p-3 bg-red-950/40 rounded border border-crit/40 text-rose-300">❌ Error al procesar archivo: ${err.message}</div>`;
+    }
+    return;
+  }
+
+  // De lo contrario, comprobar si hay texto pegado en el textarea
+  const text = $('#stock-csv-textarea') ? $('#stock-csv-textarea').value.trim() : '';
+  if(!text){
+    fb.innerHTML = '<div class="p-3 bg-amber-950/40 rounded border border-warn/40 text-amber-300">⚠️ Por favor selecciona o arrastra un archivo Excel / CSV, o pega texto en el área correspondiente.</div>';
+    return;
+  }
+
+  try {
+    const res = await api('/api/wms/stock/import-csv', {
+      method: 'POST',
+      body: JSON.stringify({ csv_text: text, mode })
+    });
+    displayImportResult(res, 'Texto CSV');
+  } catch(err){
+    fb.innerHTML = `<div class="p-3 bg-red-950/40 rounded border border-crit/40 text-rose-300">❌ Error al procesar datos: ${err.message}</div>`;
+  }
+}
+
+function displayImportResult(res, fileType){
+  const fb = $('#stock-csv-feedback');
+  let errHtml = '';
+  if(res.errors && res.errors.length){
+    errHtml = `
+      <div class="mt-2 p-2 bg-red-950/30 rounded border border-crit/30 text-rose-300 text-[11px] max-h-32 overflow-y-auto">
+        <b>Advertencias / Errores:</b><br>${res.errors.join('<br>')}
+      </div>`;
+  }
+
+  fb.innerHTML = `
+    <div class="p-3.5 bg-emerald-950/30 rounded-lg border border-emerald-500/40 shadow-sm animate-fade-in">
+      <div class="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+        <span>✅</span> ¡Carga de ${fileType} procesada con éxito!
+      </div>
+      <div class="text-xs text-gray-200 mt-1">
+        Se actualizaron correctamente <b class="text-white font-mono">${res.rows_updated}</b> registros de un total de <b class="text-white font-mono">${res.rows_processed}</b> filas analizadas.
+      </div>
+      ${errHtml}
+    </div>`;
+
+  clearStockSelectedFile();
+  // Recargar datos y refrescar vista
+  loadStockTab();
+  loadKPIs();
+}
+
+/* ==================== PESTAÑA 7: REGISTRO AUTOMÁTICO DE VENTAS ==================== */
+const BASE_PRICES = {
+  'SKU-PLS-001': 185.0,
+  'SKU-PLS-002': 95.0,
+  'SKU-CON-001': 12.5,
+  'SKU-BAT-001': 65.0,
+  'SKU-TAL-001': 120.0,
+  'SKU-ACE-001': 35.0,
+  'SKU-GUA-001': 18.0,
+  'SKU-SEN-001': 45.0
+};
+let salesChannelChart=null;
+let cachedSalesFeed=[];
+
+async function loadSalesTab(){
+  const [kpis,feed,skus,regions,botStatus]=await Promise.all([
+    api('/api/demand/sales/kpis'),
+    api('/api/demand/sales/feed?limit=40'),
+    api('/api/demand/skus'),
+    api('/api/demand/regions'),
+    api('/api/demand/sales/auto-status')
+  ]);
+  cachedSalesFeed=feed||[];
+
+  render(`
+  <!-- CABECERA DE VENTAS -->
+  <div class="mb-4">
+    <div class="flex items-center justify-between flex-wrap gap-2">
+      <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+          <span>⚡</span> Registro Automatico y Feed de Ventas en Vivo
+        </h2>
+        <p class="text-xs muted">Simulador y registrador en tiempo real con descuento automatico de stock en almacen y alertas de demanda</p>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="triggerSalesBatch(10)" class="btn primary text-xs font-bold flex items-center gap-1.5 shadow-lg">
+          <span>🚀</span> Rafaga de 10 Ventas Instantaneas
+        </button>
+        <button onclick="downloadSalesHistoryCsv()" class="btn text-xs font-semibold flex items-center gap-1.5">
+          <span>📥</span> Exportar a CSV
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL DE CONTROL DEL BOT AUTOMÁTICO -->
+  <div class="card p-4 mb-4 border border-cyan-500/30 bg-night-800/80">
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center gap-3">
+        <div class="relative flex items-center justify-center w-8 h-8 rounded-lg ${botStatus.enabled?'bg-good/20 text-good':'bg-gray-700 text-gray-400'}">
+          ${botStatus.enabled?'<span class="absolute w-3 h-3 rounded-full bg-good animate-ping"></span>':''}
+          <span class="font-black text-sm">🤖</span>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 class="font-bold text-white text-sm">Motor Agentico de Ventas en Vivo</h3>
+            <span id="bot-status-pill" class="chip ${botStatus.enabled?'green':'amber'} font-bold">
+              ${botStatus.enabled?'● Activo y Transmitiendo':'⏸ En Pausa'}
+            </span>
+          </div>
+          <p class="text-[11px] muted">Genera transacciones continuas en background descontando stock fisico en cada almacén</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 flex-wrap">
+        <!-- Selector de intervalo -->
+        <div class="flex items-center gap-1.5 text-xs">
+          <span class="muted">Cadencia:</span>
+          <select id="bot-cadence-sel" onchange="updateBotConfig()" class="text-xs py-1">
+            <option value="3" ${botStatus.interval_sec==3?'selected':''}>⚡ Rapida (Cada 3 s)</option>
+            <option value="5" ${botStatus.interval_sec==5?'selected':''}>⚡ Estandar (Cada 5 s)</option>
+            <option value="10" ${botStatus.interval_sec==10?'selected':''}>Modesta (Cada 10 s)</option>
+            <option value="20" ${botStatus.interval_sec==20?'selected':''}>Lenta (Cada 20 s)</option>
+          </select>
+        </div>
+
+        <!-- Selector de intensidad -->
+        <div class="flex items-center gap-1.5 text-xs">
+          <span class="muted">Volumen:</span>
+          <select id="bot-intensity-sel" onchange="updateBotConfig()" class="text-xs py-1">
+            <option value="low" ${botStatus.intensity==='low'?'selected':''}>Bajo (1 a 5 un.) · B2C</option>
+            <option value="medium" ${botStatus.intensity==='medium'?'selected':''}>Medio (3 a 18 un.) · Retail</option>
+            <option value="high" ${botStatus.intensity==='high'?'selected':''}>Alto (15 a 60 un.) · Mayorista</option>
+          </select>
+        </div>
+
+        <!-- Botón toggle -->
+        <button id="bot-toggle-btn" onclick="toggleAutoSalesBot()" class="btn ${botStatus.enabled?'crit':'primary'} text-xs font-bold py-1.5 px-3">
+          ${botStatus.enabled?'⏸ Pausar Bot':'▶ Activar Bot'}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPIS DE VENTAS EN TIEMPO REAL -->
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+    <div class="card p-3">
+      <div class="text-xs muted">Transacciones Hoy ${tip('Numero total de pedidos y tickets de venta registrados hoy.')}</div>
+      <div id="kpi-sales-tx" class="text-2xl font-bold text-accent">${(kpis.today_transactions||0).toLocaleString()}</div>
+      <div class="text-[11px] text-accent">operaciones hoy</div>
+    </div>
+    <div class="card p-3">
+      <div class="text-xs muted">Unidades Vendidas ${tip('Total de productos despachados hoy desde los almacenes.')}</div>
+      <div id="kpi-sales-units" class="text-2xl font-bold text-good">${(kpis.today_units||0).toLocaleString()}</div>
+      <div class="text-[11px] muted">unidades despachadas</div>
+    </div>
+    <div class="card p-3">
+      <div class="text-xs muted">Facturacion Hoy (€) ${tip('Ingresos brutos acumulados generados por las ventas de la jornada.')}</div>
+      <div id="kpi-sales-rev" class="text-2xl font-bold text-good">${(kpis.today_revenue_eur||0).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})}€</div>
+      <div class="text-[11px] muted">ingresos jornada</div>
+    </div>
+    <div class="card p-3">
+      <div class="text-xs muted">Ticket Promedio ${tip('Importe medio en euros por transaccion de venta.')}</div>
+      <div id="kpi-sales-avg" class="text-2xl font-bold text-warn">${(kpis.today_avg_ticket||0).toFixed(2)}€</div>
+      <div class="text-[11px] muted">por pedido</div>
+    </div>
+    <div class="card p-3">
+      <div class="text-xs muted">Top Articulo Demandado ${tip('Producto lider en volumen de ventas hoy.')}</div>
+      <div id="kpi-sales-top" class="text-lg font-bold text-white truncate">${kpis.top_product?kpis.top_product.name:'—'}</div>
+      <div class="text-[11px] text-accent">${kpis.top_product?kpis.top_product.units+' u vendidas':'—'}</div>
+    </div>
+  </div>
+
+  <!-- GRID: REGISTRO MANUAL + GRÁFICO DE CANALES -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+    
+    <!-- FORMULARIO MANUAL DE VENTA -->
+    <div class="card p-4 space-y-3">
+      <div class="flex items-center justify-between border-b border-night-600 pb-2">
+        <h3 class="font-bold text-white text-sm flex items-center gap-1.5">
+          <span>🛒</span> Registrar Venta Inmediata
+        </h3>
+        <span class="chip cyan">Manual</span>
+      </div>
+
+      <div>
+        <label class="block text-xs muted mb-1">Producto</label>
+        <select id="sale-sku" onchange="updateSaleProductPrice()" class="w-full">
+          ${skus.map(s=>`<option value="${s.sku}">${s.sku} · ${s.name}</option>`).join('')}
+        </select>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="block text-xs muted mb-1">Almacen Despachador</label>
+          <select id="sale-region" class="w-full">
+            ${regions.map(r=>`<option value="${r.region_id}">${r.name}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs muted mb-1">Canal de Venta</label>
+          <select id="sale-channel" onchange="updateSaleProductPrice()" class="w-full">
+            <option value="retail">Tienda Retail</option>
+            <option value="ecommerce">Ecommerce Web</option>
+            <option value="distribuidor">Distribuidor B2B</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="block text-xs muted mb-1">Unidades</label>
+          <input id="sale-units" type="number" min="1" value="5" oninput="calcSaleTotal()" class="w-full font-mono text-sm">
+        </div>
+        <div>
+          <label class="block text-xs muted mb-1">Precio Unitario (€)</label>
+          <input id="sale-price" type="number" step="0.5" value="50" oninput="calcSaleTotal()" class="w-full font-mono text-sm">
+        </div>
+      </div>
+
+      <div class="p-2.5 bg-night-800 rounded border border-night-700 flex justify-between items-center text-xs">
+        <span class="muted">Total Facturacion:</span>
+        <b id="sale-total-preview" class="text-good font-mono text-base font-bold">250.00 €</b>
+      </div>
+
+      <button onclick="submitManualSale()" class="btn primary w-full font-bold py-2 shadow-lg flex items-center justify-center gap-2">
+        <span>✅</span> Confirmar y Descontar Stock
+      </button>
+      <div id="sale-manual-feedback" class="text-xs"></div>
+    </div>
+
+    <!-- GRÁFICO EN VIVO DE CANALES Y REGIONES -->
+    <div class="card p-4 lg:col-span-2 flex flex-col justify-between">
+      <div class="flex items-center justify-between border-b border-night-600 pb-2 mb-2">
+        <h3 class="font-bold text-white text-sm flex items-center gap-1.5">
+          <span>📊</span> Distribucion de Ventas por Canal y Region
+        </h3>
+        <span class="text-xs muted">Actualizacion automatica</span>
+      </div>
+      <div class="relative h-60 w-full">
+        <canvas id="salesChannelChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- FEED EN VIVO DE TRANSACCIONES -->
+  <div class="card p-4">
+    <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+      <div class="flex items-center gap-2">
+        <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></div>
+        <h3 class="font-bold text-white text-base">Feed de Transacciones en Directo (Live Stream)</h3>
+        ${tip('Muestra las ventas entrantes en tiempo real. Cada venta descuenta las existencias del inventario y avisa si se alcanza el nivel critico.')}
+      </div>
+      <span class="text-xs text-accent font-mono font-semibold" id="sales-feed-counter">${cachedSalesFeed.length} registros</span>
+    </div>
+
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Hora</th>
+            <th>ID Pedido</th>
+            <th>Articulo</th>
+            <th>Almacen</th>
+            <th>Canal</th>
+            <th class="text-right">Unidades</th>
+            <th class="text-right">Importe (€)</th>
+            <th class="text-right">Stock Remanente</th>
+            <th>Alerta Demanda</th>
+          </tr>
+        </thead>
+        <tbody id="sales-feed-tbody">
+          ${renderSalesFeedRows(cachedSalesFeed)}
+        </tbody>
+      </table>
+    </div>
+  </div>`);
+
+  updateSaleProductPrice();
+  renderSalesCharts(kpis);
+}
+
+function updateSaleProductPrice(){
+  const skuSel=$('#sale-sku');
+  const chSel=$('#sale-channel');
+  if(!skuSel)return;
+  const sku=skuSel.value;
+  const ch=chSel?chSel.value:'retail';
+  const base=BASE_PRICES[sku]||50;
+  const mult=ch==='retail'?1.15:ch==='ecommerce'?1.05:0.85;
+  const priceInput=$('#sale-price');
+  if(priceInput)priceInput.value=(base*mult).toFixed(2);
+  calcSaleTotal();
+}
+
+function calcSaleTotal(){
+  const units=parseInt($('#sale-units')?.value)||0;
+  const p=parseFloat($('#sale-price')?.value)||0;
+  const prev=$('#sale-total-preview');
+  if(prev)prev.textContent=(units*p).toFixed(2)+' €';
+}
+
+async function submitManualSale(){
+  const fb=$('#sale-manual-feedback');
+  fb.innerHTML='<span class="text-accent">Registrando venta...</span>';
+  try{
+    const sku=$('#sale-sku').value;
+    const region_id=$('#sale-region').value;
+    const units=parseInt($('#sale-units').value)||1;
+    const price_eur=parseFloat($('#sale-price').value)||null;
+    const channel=$('#sale-channel').value||'retail';
+
+    const res=await api('/api/demand/sales/record',{
+      method:'POST',
+      body:JSON.stringify({sku,region_id,units,price_eur,channel})
+    });
+
+    fb.innerHTML=`<span class="text-good font-semibold">✅ Venta registrada: ${res.units}u de ${res.sku} (${res.total_eur}€). Stock remanente: ${res.current_stock}u</span>`;
+    loadKPIs();
+    refreshSalesFeed();
+  }catch(e){
+    fb.innerHTML=`<span class="text-crit">❌ Error: ${e.message}</span>`;
+  }
+}
+
+async function toggleAutoSalesBot(){
+  try{
+    const st=await api('/api/demand/sales/auto-status');
+    const newState=!st.enabled;
+    await api('/api/demand/sales/auto-config',{
+      method:'POST',
+      body:JSON.stringify({enabled:newState})
+    });
+    const btn=$('#bot-toggle-btn');
+    const pill=$('#bot-status-pill');
+    if(btn){
+      btn.textContent=newState?'⏸ Pausar Bot':'▶ Activar Bot';
+      btn.classList.toggle('crit',newState);
+      btn.classList.toggle('primary',!newState);
+    }
+    if(pill){
+      pill.textContent=newState?'● Activo y Transmitiendo':'⏸ En Pausa';
+      pill.className=`chip ${newState?'green':'amber'} font-bold`;
+    }
+  }catch(e){
+    alert('Error al conmutar bot: '+e.message);
+  }
+}
+
+async function updateBotConfig(){
+  const interval_sec=parseInt($('#bot-cadence-sel')?.value)||5;
+  const intensity=$('#bot-intensity-sel')?.value||'medium';
+  try{
+    await api('/api/demand/sales/auto-config',{
+      method:'POST',
+      body:JSON.stringify({interval_sec,intensity})
+    });
+  }catch(e){}
+}
+
+async function triggerSalesBatch(count=10){
+  try{
+    await api('/api/demand/sales/batch-generate',{
+      method:'POST',
+      body:JSON.stringify({count})
+    });
+    refreshSalesFeed();
+    loadKPIs();
+  }catch(e){
+    alert('Error en rafaga: '+e.message);
+  }
+}
+
+async function refreshSalesFeed(){
+  if(currentTab!=='sales')return;
+  try{
+    const [feed,kpis]=await Promise.all([
+      api('/api/demand/sales/feed?limit=35'),
+      api('/api/demand/sales/kpis')
+    ]);
+    cachedSalesFeed=feed||[];
+
+    const tbody=$('#sales-feed-tbody');
+    if(tbody)tbody.innerHTML=renderSalesFeedRows(cachedSalesFeed);
+
+    const counter=$('#sales-feed-counter');
+    if(counter)counter.textContent=cachedSalesFeed.length+' registros';
+
+    // Actualizar KPIs numéricos en vivo sin parpadeo
+    if($('#kpi-sales-tx'))$('#kpi-sales-tx').textContent=(kpis.today_transactions||0).toLocaleString();
+    if($('#kpi-sales-units'))$('#kpi-sales-units').textContent=(kpis.today_units||0).toLocaleString();
+    if($('#kpi-sales-rev'))$('#kpi-sales-rev').textContent=(kpis.today_revenue_eur||0).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+'€';
+    if($('#kpi-sales-avg'))$('#kpi-sales-avg').textContent=(kpis.today_avg_ticket||0).toFixed(2)+'€';
+    if($('#kpi-sales-top')&&kpis.top_product)$('#kpi-sales-top').textContent=kpis.top_product.name;
+
+    // Actualizar datos del gráfico
+    if(salesChannelChart&&kpis.by_channel){
+      salesChannelChart.data.labels=kpis.by_channel.map(c=>c.channel.toUpperCase());
+      salesChannelChart.data.datasets[0].data=kpis.by_channel.map(c=>c.revenue);
+      salesChannelChart.update('none');
+    }
+  }catch(e){}
+}
+
+function renderSalesFeedRows(rows){
+  if(!rows||rows.length===0){
+    return '<tr><td colspan="9" class="text-center py-4 muted">Esperando transmision de transacciones...</td></tr>';
+  }
+  return rows.map(r=>{
+    const chClass=r.channel==='retail'?'green':r.channel==='ecommerce'?'cyan':'amber';
+    const isCrit=(r.current_stock!==null&&r.reorder_point!==null&&r.current_stock<=r.reorder_point);
+    const alertChip=isCrit
+      ? `<span class="chip red text-[10px] animate-pulse">⚠ Bajo Minimo (${r.current_stock}u)</span>`
+      : '<span class="chip green text-[10px]">Ok</span>';
+
+    return `<tr class="transition-colors hover:bg-night-700/60">
+      <td class="font-mono text-gray-300 text-xs">${r.time||(r.timestamp||'').slice(11,19)||'Reciente'}</td>
+      <td class="font-mono text-gray-400 text-xs">#TX-${r.id||(r.sku?r.sku.replace(/\D/g,''):'00')}</td>
+      <td>
+        <div class="text-white font-medium text-xs">${r.product_name||r.sku}</div>
+        <div class="text-[10px] font-mono muted">${r.sku}</div>
+      </td>
+      <td><span class="font-semibold text-gray-300">${r.region_name||r.region_id}</span></td>
+      <td><span class="chip ${chClass} capitalize text-[10px]">${r.channel}</span></td>
+      <td class="text-right font-mono font-bold text-white text-xs">${r.units}</td>
+      <td class="text-right font-mono text-accent font-bold text-xs">${parseFloat(r.total_eur||0).toFixed(2)} €</td>
+      <td class="text-right font-mono ${isCrit?'text-crit font-bold':'text-gray-300'} text-xs">${r.current_stock!==null?r.current_stock+' u':'—'}</td>
+      <td>${alertChip}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderSalesCharts(kpis){
+  if(salesChannelChart){salesChannelChart.destroy();salesChannelChart=null;}
+  const ctx=$('#salesChannelChart');
+  if(!ctx)return;
+  const labels=(kpis.by_channel||[]).map(c=>c.channel.toUpperCase());
+  const data=(kpis.by_channel||[]).map(c=>c.revenue);
+
+  salesChannelChart=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:labels.length?labels:['RETAIL','ECOMMERCE','DISTRIBUIDOR'],
+      datasets:[{
+        label:'Facturacion (€)',
+        data:data.length?data:[1250,2100,850],
+        backgroundColor:['#10b981','#22d3ee','#f59e0b'],
+        borderRadius:6,
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{backgroundColor:'#111827',borderColor:'#243047',borderWidth:1}
+      },
+      scales:{
+        x:{ticks:{color:'#9ca3af'},grid:{color:'#1a2235'}},
+        y:{ticks:{color:'#9ca3af'},grid:{color:'#1a2235'},beginAtZero:true}
+      }
+    }
+  });
+}
+
+function downloadSalesHistoryCsv(){
+  let csv="id,timestamp,sku,region,channel,units,total_eur\n";
+  cachedSalesFeed.forEach(r=>{
+    csv+=`${r.id||''},"${r.timestamp||r.time||''}","${r.sku}","${r.region_id}","${r.channel}",${r.units},${r.total_eur}\n`;
+  });
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='ventas_historial.csv';
+  a.click();
+}
+
+/* ==================== PESTAÑA 8: DATASET LOGÍSTICO REAL (IFOODCASE 4.282) ==================== */
+let realLogisticsChart=null;
+
+async function loadLogisticsTab(){
+  const [metrics, ordersRes] = await Promise.all([
+    api('/api/logistics/metrics'),
+    api('/api/logistics/orders?limit=40')
+  ]);
+
+  const orders = ordersRes.orders || [];
+
+  render(`
+  <!-- CABECERA DATASET REAL -->
+  <div class="mb-5 bg-gradient-to-r from-night-800 to-night-700/60 p-4 rounded-xl border border-emerald-500/30 shadow-lg">
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-2xl shadow-inner">
+          📊
+        </div>
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            Dataset Real: BD Logística
+            <span class="chip green text-[11px] font-mono">4.282 Pedidos Reales</span>
+          </h2>
+          <p class="text-xs text-gray-300">
+            Conexión directa a SQLite (<code class="text-emerald-400 font-mono">data/scm.db</code>) con métricas empíricas de despachos por región (BH, SP, RJ), volumen de ítems, motoristas y análisis crítico de retrasos.
+          </p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="chip red text-xs font-bold py-1 px-2.5 animate-pulse">
+          Tasa Retraso Global: ${metrics.delay_rate_pct}%
+        </span>
+        <button onclick="loadLogisticsTab()" class="btn primary text-xs font-semibold flex items-center gap-1.5">
+          <span>🔄</span> Recargar Datos
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TARJETAS DE MÉTRICAS GLOBALES REALES -->
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+    <div class="card p-3.5 border-night-700 hover:border-emerald-500/40 transition-colors">
+      <div class="text-xs muted flex items-center justify-between">
+        <span>Total Pedidos</span>
+        <span>📦</span>
+      </div>
+      <div class="text-2xl font-bold text-white font-mono my-1">${metrics.total_orders.toLocaleString()}</div>
+      <div class="text-[11px] text-emerald-400 font-medium">100% ingestados</div>
+    </div>
+    <div class="card p-3.5 border-night-700 hover:border-emerald-500/40 transition-colors">
+      <div class="text-xs muted flex items-center justify-between">
+        <span>Ítems Despachados</span>
+        <span>🛒</span>
+      </div>
+      <div class="text-2xl font-bold text-accent font-mono my-1">${metrics.total_items.toLocaleString()}</div>
+      <div class="text-[11px] muted">volumen físico</div>
+    </div>
+    <div class="card p-3.5 border-night-700 hover:border-emerald-500/40 transition-colors">
+      <div class="text-xs muted flex items-center justify-between">
+        <span>Facturación Real</span>
+        <span>💵</span>
+      </div>
+      <div class="text-2xl font-bold text-emerald-400 font-mono my-1">R$ ${metrics.total_revenue_brl.toLocaleString()}</div>
+      <div class="text-[11px] muted">ticket medio R$ ${metrics.avg_ticket_brl}</div>
+    </div>
+    <div class="card p-3.5 border-crit/40 bg-crit/5 transition-colors">
+      <div class="text-xs text-rose-300 flex items-center justify-between font-semibold">
+        <span>Pedidos Atrasados</span>
+        <span>⚠️</span>
+      </div>
+      <div class="text-2xl font-bold text-crit font-mono my-1">${metrics.delayed_orders.toLocaleString()}</div>
+      <div class="text-[11px] text-rose-400 font-bold">${metrics.delay_rate_pct}% de entregas</div>
+    </div>
+    <div class="card p-3.5 border-night-700 hover:border-emerald-500/40 transition-colors">
+      <div class="text-xs muted flex items-center justify-between">
+        <span>Tiempo Medio Entrega</span>
+        <span>⏱️</span>
+      </div>
+      <div class="text-2xl font-bold text-warn font-mono my-1">${metrics.avg_delivery_days} días</div>
+      <div class="text-[11px] text-gray-400">${metrics.on_time_orders} entregas a tiempo</div>
+    </div>
+  </div>
+
+  <!-- COMPARATIVA BENCHMARK: BD_LOGISTICA VS IFOODCASE (153.604 REGISTROS) -->
+  <div class="p-4 mb-5 bg-night-800/90 rounded-xl border border-night-700 shadow-md">
+    <div class="flex items-center justify-between border-b border-night-700/80 pb-2 mb-3">
+      <div class="flex items-center gap-2">
+        <span class="text-lg">⚡</span>
+        <h3 class="font-bold text-white text-sm">Comparativa Cruzada: BD_Logistica (4.282) vs Macro-Dataset IfoodCase (153.604)</h3>
+      </div>
+      <span class="chip cyan text-[10px]">Análisis de Causa Raíz</span>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+      <div class="p-2.5 bg-night-900 rounded-lg border border-night-800">
+        <span class="text-gray-400 block text-[11px]">Universo IfoodCase Total:</span>
+        <span class="font-mono font-bold text-white text-base">153.604 pedidos</span>
+        <span class="text-[10px] text-gray-400 block mt-0.5">Motocicleta: 92,4% · Bici: 7,6%</span>
+      </div>
+      <div class="p-2.5 bg-night-900 rounded-lg border border-night-800">
+        <span class="text-gray-400 block text-[11px]">Atraso por Restaurante (Preparación):</span>
+        <span class="font-mono font-bold text-warn text-base">38,82%</span>
+        <span class="text-[10px] text-gray-400 block mt-0.5">59.625 pedidos demorados en origen</span>
+      </div>
+      <div class="p-2.5 bg-night-900 rounded-lg border border-night-800">
+        <span class="text-gray-400 block text-[11px]">Atraso por Entregador (Tránsito):</span>
+        <span class="font-mono font-bold text-accent text-base">9,97%</span>
+        <span class="text-[10px] text-gray-400 block mt-0.5">15.308 pedidos con fricción de ruta</span>
+      </div>
+      <div class="p-2.5 bg-night-900 rounded-lg border border-night-800">
+        <span class="text-gray-400 block text-[11px]">Distancia & Tiempo Medio:</span>
+        <span class="font-mono font-bold text-emerald-400 text-base">4,51 km · 27,1 min</span>
+        <span class="text-[10px] text-gray-400 block mt-0.5">Eficiencia de última milla</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPARATIVA REGIONAL (BH, SP, RJ) Y MOTIVOS DE DEVOLUCIÓN -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+    
+    <!-- TARJETAS POR REGIÓN -->
+    <div class="lg:col-span-2 card p-4 space-y-3">
+      <div class="flex items-center justify-between border-b border-night-700 pb-2">
+        <h3 class="font-bold text-white text-sm flex items-center gap-2">
+          <span>🏬</span> Rendimiento por Región Logística (BH · SP · RJ)
+        </h3>
+        <span class="chip cyan text-[11px]">3 Destinos Clave</span>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        ${metrics.regions.map(r=>`
+          <div class="p-3 bg-night-900 rounded-xl border border-night-700 space-y-2">
+            <div class="flex items-center justify-between border-b border-night-800 pb-1.5">
+              <span class="text-base font-black text-accent font-mono">${r.region}</span>
+              <span class="chip ${r.delay_percentage>70?'red':'amber'} text-[10px] font-mono">${r.delay_percentage}% Atraso</span>
+            </div>
+            <div class="space-y-1 text-xs">
+              <div class="flex justify-between text-gray-400">
+                <span>Pedidos:</span>
+                <b class="text-white font-mono">${r.orders_count.toLocaleString()}</b>
+              </div>
+              <div class="flex justify-between text-gray-400">
+                <span>Ítems:</span>
+                <b class="text-gray-200 font-mono">${r.items_sum.toLocaleString()}</b>
+              </div>
+              <div class="flex justify-between text-gray-400">
+                <span>Facturado:</span>
+                <b class="text-emerald-400 font-mono">R$ ${r.revenue_brl.toLocaleString()}</b>
+              </div>
+              <div class="flex justify-between text-gray-400">
+                <span>Plazo Medio:</span>
+                <b class="text-warn font-mono">${r.avg_days} días</b>
+              </div>
+              <div class="flex justify-between text-gray-400">
+                <span>Devoluciones:</span>
+                <b class="text-rose-400 font-mono">${r.returns_count} u</b>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <!-- Barra de progreso comparativa -->
+      <div class="pt-2">
+        <div class="text-xs text-gray-400 mb-1 flex justify-between">
+          <span>Distribución del volumen de pedidos por región:</span>
+          <span class="text-gray-300 font-mono">BH (34.9%) · SP (33.0%) · RJ (32.1%)</span>
+        </div>
+        <div class="w-full h-3 rounded-full bg-night-900 flex overflow-hidden border border-night-700">
+          <div class="bg-cyan-500 h-full" style="width: 34.9%" title="BH: 34.9%"></div>
+          <div class="bg-blue-500 h-full" style="width: 33.0%" title="SP: 33.0%"></div>
+          <div class="bg-indigo-500 h-full" style="width: 32.1%" title="RJ: 32.1%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MOTIVOS DE DEVOLUCIÓN -->
+    <div class="card p-4 space-y-3 flex flex-col justify-between">
+      <div>
+        <div class="flex items-center justify-between border-b border-night-700 pb-2 mb-2">
+          <h3 class="font-bold text-white text-sm flex items-center gap-1.5">
+            <span>📦</span> Motivos de Devolución
+          </h3>
+          <span class="chip red text-[11px]">${metrics.total_returns} Unidades</span>
+        </div>
+        <div class="space-y-2 text-xs">
+          ${metrics.returns.map(ret=>`
+            <div class="p-2 bg-night-900 rounded-lg border border-night-800 flex items-center justify-between">
+              <div>
+                <div class="text-white font-medium">${ret.return_reason}</div>
+                <div class="text-[10px] text-gray-400">${ret.occurrences} ocurrencias</div>
+              </div>
+              <span class="chip ${ret.return_reason==='S/ Devolu.'?'green':'red'} text-xs font-mono font-bold">
+                ${ret.units_returned} u
+              </span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="text-[11px] text-gray-400 p-2 bg-night-900/60 rounded border border-night-800">
+        💡 <b class="text-white">Hallazgo crítico:</b> "Produto Errado" y "Danificado" representan más del 90% de las devoluciones físicas.
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLA DE PEDIDOS Y TOP MOTORISTAS -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+    
+    <!-- TOP MOTORISTAS -->
+    <div class="card p-4 space-y-3">
+      <div class="flex items-center justify-between border-b border-night-700 pb-2">
+        <h3 class="font-bold text-white text-sm flex items-center gap-2">
+          <span>🚚</span> Rendimiento de Motoristas
+        </h3>
+        <span class="chip amber text-[11px]">Flota Asignada</span>
+      </div>
+      <div class="scroll space-y-2 max-h-96">
+        ${metrics.drivers.slice(0, 10).map(d=>`
+          <div class="p-2.5 bg-night-900 rounded-lg border border-night-800 text-xs space-y-1">
+            <div class="flex justify-between items-center font-bold">
+              <span class="text-white">${d.driver}</span>
+              <span class="chip ${d.delay_rate>70?'red':'amber'} text-[10px]">${d.delay_rate}% Atraso</span>
+            </div>
+            <div class="flex justify-between text-[11px] text-gray-400">
+              <span>Viajes: <b class="text-gray-200 font-mono">${d.total_trips}</b> (${d.delayed_trips} atrasados)</span>
+              <span>Facturado: <b class="text-emerald-400 font-mono">R$ ${d.total_billed_brl.toLocaleString()}</b></span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <!-- TABLA DE PEDIDOS REALES -->
+    <div class="lg:col-span-2 card p-4 space-y-3">
+      <div class="flex items-center justify-between flex-wrap gap-2 border-b border-night-700 pb-2">
+        <div>
+          <h3 class="font-bold text-white text-sm flex items-center gap-2">
+            <span>📋</span> Explorador de Pedidos Reales del Dataset
+          </h3>
+          <p class="text-xs text-gray-400">Registros directos de SQLite: búsqueda, filtros y paginación sobre los 4.282 despachos.</p>
+        </div>
+        <div class="flex items-center flex-wrap gap-2 text-xs">
+          <input id="real-filter-q" type="text" placeholder="🔍 Pedido, cliente, motorista..." oninput="filterRealOrders(0)" class="text-xs py-1 px-2.5 w-44">
+          <select id="real-filter-dest" onchange="filterRealOrders(0)" class="text-xs py-1">
+            <option value="">Todos los Destinos</option>
+            <option value="BH">Belo Horizonte (BH)</option>
+            <option value="SP">São Paulo (SP)</option>
+            <option value="RJ">Rio de Janeiro (RJ)</option>
+          </select>
+          <select id="real-filter-status" onchange="filterRealOrders(0)" class="text-xs py-1">
+            <option value="">Todos los Estados</option>
+            <option value="Atrasado">Solo Atrasados</option>
+            <option value="No Prazo">Solo No Prazo</option>
+          </select>
+          <select id="real-filter-return" onchange="filterRealOrders(0)" class="text-xs py-1">
+            <option value="">Todas las Devoluciones</option>
+            <option value="Produto Errado">Produto Errado</option>
+            <option value="Danificado">Danificado</option>
+            <option value="Arrependimento">Arrependimento</option>
+            <option value="S/ Devolu.">Sin Devolución</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="scroll max-h-96 overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead>
+            <tr class="bg-night-800/80 text-gray-400 uppercase tracking-wider text-[11px]">
+              <th class="p-2">Pedido</th>
+              <th class="p-2">Cliente</th>
+              <th class="p-2">Motorista</th>
+              <th class="p-2">Destino</th>
+              <th class="p-2 text-right">Ítems</th>
+              <th class="p-2 text-right">R$ Faturado</th>
+              <th class="p-2 text-center">Previsto</th>
+              <th class="p-2 text-center">Real</th>
+              <th class="p-2 text-center">Devolución</th>
+              <th class="p-2 text-center">Estatus</th>
+            </tr>
+          </thead>
+          <tbody id="real-orders-tbody" class="divide-y divide-night-800">
+            ${renderRealOrderRows(orders)}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="flex items-center justify-between pt-2 border-t border-night-800 text-xs">
+        <span id="real-orders-page-info" class="text-gray-400 font-mono">
+          Mostrando 1–${orders.length} de ${(ordersRes.total || orders.length).toLocaleString()} pedidos
+        </span>
+        <div class="flex items-center gap-2">
+          <button id="real-btn-prev" onclick="changeRealOrdersPage(-1)" disabled class="btn text-xs py-1 px-2.5">← Anterior</button>
+          <button id="real-btn-next" onclick="changeRealOrdersPage(1)" ${(ordersRes.total || 0) <= 40 ? 'disabled' : ''} class="btn text-xs py-1 px-2.5">Siguiente →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  `);
+  realOrdersOffset = 0;
+}
+
+let realOrdersOffset = 0;
+const REAL_ORDERS_LIMIT = 40;
+
+function changeRealOrdersPage(delta){
+  const nextOffset = Math.max(0, realOrdersOffset + delta * REAL_ORDERS_LIMIT);
+  filterRealOrders(nextOffset);
+}
+
+function renderRealOrderRows(rows){
+  if(!rows || rows.length === 0){
+    return '<tr><td colspan="10" class="text-center py-4 text-gray-400">No se encontraron pedidos con esos filtros.</td></tr>';
+  }
+  return rows.map(r=>{
+    const isLate = r.delay_status === 'Atrasado';
+    const hasRet = r.return_reason && r.return_reason !== 'S/ Devolu.';
+    return `
+      <tr class="hover:bg-night-800/60 transition-colors">
+        <td class="p-2 font-mono font-bold text-accent">${r.order_id}</td>
+        <td class="p-2 text-white font-medium truncate max-w-[120px]">${r.client}</td>
+        <td class="p-2 text-gray-300 truncate max-w-[120px]">${r.driver}</td>
+        <td class="p-2"><span class="chip cyan text-[10px] font-mono">${r.destination}</span></td>
+        <td class="p-2 text-right font-mono font-bold text-white">${r.items_count}</td>
+        <td class="p-2 text-right font-mono text-emerald-400 font-semibold">R$ ${parseFloat(r.billed_brl||0).toFixed(2)}</td>
+        <td class="p-2 text-center font-mono text-[11px] text-gray-400">${r.planned_delivery_date||'—'}</td>
+        <td class="p-2 text-center font-mono text-[11px] ${isLate?'text-rose-400 font-bold':'text-emerald-400'}">${r.actual_delivery_date||'—'}</td>
+        <td class="p-2 text-center">
+          <span class="chip ${hasRet?'amber':'gray'} text-[10px]">${r.return_reason||'S/ Devolu.'}</span>
+        </td>
+        <td class="p-2 text-center">
+          <span class="chip ${isLate?'red':'green'} text-[10px] font-semibold">${r.delay_status}</span>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function filterRealOrders(offset=0){
+  realOrdersOffset = offset;
+  const q = ($('#real-filter-q')?.value || '').trim();
+  const dest = $('#real-filter-dest')?.value || '';
+  const status = $('#real-filter-status')?.value || '';
+  const retReason = $('#real-filter-return')?.value || '';
+  let url = `/api/logistics/orders?limit=${REAL_ORDERS_LIMIT}&offset=${realOrdersOffset}`;
+  if(dest) url += `&region=${encodeURIComponent(dest)}`;
+  if(status) url += `&status=${encodeURIComponent(status)}`;
+  if(retReason) url += `&return_reason=${encodeURIComponent(retReason)}`;
+  if(q) url += `&q=${encodeURIComponent(q)}`;
+
+  try{
+    const res = await api(url);
+    const orders = res.orders || [];
+    const total = res.total || 0;
+    const tbody = $('#real-orders-tbody');
+    if(tbody) tbody.innerHTML = renderRealOrderRows(orders);
+    const info = $('#real-orders-page-info');
+    if(info){
+      const start = total === 0 ? 0 : realOrdersOffset + 1;
+      const end = Math.min(total, realOrdersOffset + orders.length);
+      info.textContent = `Mostrando ${start}–${end} de ${total.toLocaleString()} pedidos`;
+    }
+    const prevBtn = $('#real-btn-prev');
+    const nextBtn = $('#real-btn-next');
+    if(prevBtn) prevBtn.disabled = realOrdersOffset <= 0;
+    if(nextBtn) nextBtn.disabled = (realOrdersOffset + REAL_ORDERS_LIMIT) >= total;
+  }catch(e){
+    console.error('Error al filtrar pedidos reales:', e);
+  }
+}
+
+/* ==================== PESTAÑA 9: HALLAZGOS Y ANÁLISIS EDA IFOOD (153.604 REGISTROS) ==================== */
+function loadFindingsTab(){
+  render(`
+  <!-- CABECERA DE HALLAZGOS EDA -->
+  <div class="mb-5 bg-gradient-to-r from-cyan-950/40 via-night-800 to-night-700/60 p-4 rounded-xl border border-cyan-500/40 shadow-lg">
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400 text-2xl shadow-inner">
+          🔬
+        </div>
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            Macro-Dataset Real: iFood (153.604 Pedidos)
+            <span class="chip cyan text-[11px] font-mono">EDA y Causa Raíz</span>
+          </h2>
+          <p class="text-xs text-gray-300">
+            Descubrimientos cuantitativos sobre el macro-dataset real de delivery urbano: tiempos de cocina, cuellos de botella y causa raíz de demoras operativas.
+          </p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="chip green text-xs font-bold py-1 px-2.5">
+          90,05% Cumplimiento Global
+        </span>
+        <button onclick="loadFindingsTab()" class="btn primary text-xs font-semibold flex items-center gap-1.5">
+          <span>🔄</span> Refrescar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TARJETAS DE IMPACTO CRÍTICO -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-5">
+    <div class="card p-4 border-night-700 hover:border-cyan-500/40 transition-colors">
+      <div class="flex justify-between items-center text-xs text-gray-400 mb-1">
+        <span>Universo de Entregas</span>
+        <span>🛵</span>
+      </div>
+      <div class="text-2xl font-bold text-white font-mono">153.604</div>
+      <div class="text-[11px] text-emerald-400 mt-1">138.327 entregados a tiempo</div>
+    </div>
+
+    <div class="card p-4 border-night-700 hover:border-cyan-500/40 transition-colors">
+      <div class="flex justify-between items-center text-xs text-gray-400 mb-1">
+        <span>Atraso Global en Cliente</span>
+        <span>⏱️</span>
+      </div>
+      <div class="text-2xl font-bold text-cyan-400 font-mono">9,95%</div>
+      <div class="text-[11px] text-gray-400 mt-1">15.277 entregas demoradas</div>
+    </div>
+
+    <div class="card p-4 border-warn/40 bg-warn/5 transition-colors">
+      <div class="flex justify-between items-center text-xs text-amber-300 font-semibold mb-1">
+        <span>Demora en Restaurante (Cocina)</span>
+        <span>🍳</span>
+      </div>
+      <div class="text-2xl font-bold text-warn font-mono">38,82%</div>
+      <div class="text-[11px] text-amber-400 font-medium mt-1">59.625 pedidos con retraso en origen</div>
+    </div>
+
+    <div class="card p-4 border-night-700 hover:border-cyan-500/40 transition-colors">
+      <div class="flex justify-between items-center text-xs text-gray-400 mb-1">
+        <span>Atraso en Tránsito (Motorista)</span>
+        <span>🚦</span>
+      </div>
+      <div class="text-2xl font-bold text-white font-mono">9,97%</div>
+      <div class="text-[11px] text-emerald-400 mt-1">15.308 con retraso en viaje</div>
+    </div>
+  </div>
+
+  <!-- 4 GRANDES DESCUBRIMIENTOS DEL EDA -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+    
+    <!-- DESCUBRIMIENTO 1: EL CUELLO DE BOTELLA REAL -->
+    <div class="card p-5 space-y-3 border-l-4 border-l-amber-500">
+      <div class="flex items-center justify-between border-b border-night-700 pb-2">
+        <h3 class="font-bold text-white text-base flex items-center gap-2">
+          <span>1️⃣</span> El Verdadero Cuello de Botella: La Cocina, no la Moto
+        </h3>
+        <span class="chip amber text-[10px]">Causa Raíz #1</span>
+      </div>
+      <p class="text-xs text-gray-300 leading-relaxed">
+        El análisis revela una divergencia sustancial: mientras que el <b class="text-white">retraso atribuible al motorista es de solo 9,97%</b>, el <b class="text-warn">38,82% de los pedidos sufren retraso en el restaurante</b> antes de ser recolectados.
+      </p>
+      <div class="p-3 bg-night-900 rounded-lg border border-night-800 text-xs space-y-1.5 font-mono">
+        <div class="flex justify-between">
+          <span class="text-gray-400">Tiempo estimado en cocina:</span>
+          <span class="text-white">16,4 min</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-400">Tiempo real hasta colecta:</span>
+          <span class="text-warn font-bold">18,4 min (retraso sistemático)</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-400">Tiempo del repartidor hasta el local:</span>
+          <span class="text-emerald-400 font-bold">9,1 min (llega 7 min antes de la comida)</span>
+        </div>
+      </div>
+      <div class="text-[11px] text-gray-400">
+        💡 <b class="text-cyan-400">Conclusión:</b> Los motoristas pasan un promedio de <b class="text-white">9,3 minutos ociosos esperando el pedido</b> en el local.
+      </div>
+    </div>
+
+    <!-- DESCUBRIMIENTO 2: MODAL DE TRANSPORTE Y EFICIENCIA -->
+    <div class="card p-5 space-y-3 border-l-4 border-l-cyan-500">
+      <div class="flex items-center justify-between border-b border-night-700 pb-2">
+        <h3 class="font-bold text-white text-base flex items-center gap-2">
+          <span>2️⃣</span> Impacto del Modal: Moto vs Bicicleta
+        </h3>
+        <span class="chip cyan text-[10px]">Flota y Transporte</span>
+      </div>
+      <p class="text-xs text-gray-300 leading-relaxed">
+        La motocicleta domina la logística con el <b class="text-white">92,35% del volumen</b> (141.860 pedidos), cubriendo radios más amplios con menor porcentaje de retraso final que las bicicletas.
+      </p>
+      <div class="grid grid-cols-2 gap-2 text-xs font-mono">
+        <div class="p-2.5 bg-night-900 rounded-lg border border-night-800">
+          <div class="text-cyan-400 font-bold mb-1">🛵 Motocicleta</div>
+          <div class="text-gray-400 text-[11px]">Distancia: <b class="text-white">4,75 km</b></div>
+          <div class="text-gray-400 text-[11px]">Tiempo: <b class="text-white">27,2 min</b></div>
+          <div class="text-gray-400 text-[11px]">Tasa Atraso: <b class="text-emerald-400">9,54%</b></div>
+        </div>
+        <div class="p-2.5 bg-night-900 rounded-lg border border-night-800">
+          <div class="text-amber-400 font-bold mb-1">🚲 Bicicleta</div>
+          <div class="text-gray-400 text-[11px]">Distancia: <b class="text-white">1,67 km</b></div>
+          <div class="text-gray-400 text-[11px]">Tiempo: <b class="text-white">25,9 min</b></div>
+          <div class="text-gray-400 text-[11px]">Tasa Atraso: <b class="text-rose-400 font-bold">14,87%</b></div>
+        </div>
+      </div>
+      <div class="text-[11px] text-gray-400">
+        💡 <b class="text-cyan-400">Conclusión:</b> A pesar de recorrer un tercio de la distancia (1,67 km vs 4,75 km), las bicicletas sufren un <b class="text-rose-400">56% más de probabilidad de atraso</b> debido a fatiga física y topografía urbana.
+      </div>
+    </div>
+
+    <!-- DESCUBRIMIENTO 3: TIPO DE RUTA (SINGLE PICK VS MULTI-DROP) -->
+    <div class="card p-5 space-y-3 border-l-4 border-l-indigo-500">
+      <div class="flex items-center justify-between border-b border-night-700 pb-2">
+        <h3 class="font-bold text-white text-base flex items-center gap-2">
+          <span>3️⃣</span> Rutas Agrupadas (Multi-Drop) vs Ruta Única
+        </h3>
+        <span class="chip blue text-[10px]">Estrategia de Enrutamiento</span>
+      </div>
+      <p class="text-xs text-gray-300 leading-relaxed">
+        El 94,9% de los pedidos son punto a punto (<code class="text-cyan-400">SINGLE_PICK_SINGLE_DROP</code>). Las rutas multi-entrega (<code class="text-cyan-400">MULTI_DROP</code>), aunque optimizan combustible, aumentan el riesgo de degradación del servicio.
+      </p>
+      <div class="p-3 bg-night-900 rounded-lg border border-night-800 space-y-1.5 text-xs font-mono">
+        <div class="flex justify-between">
+          <span class="text-gray-300">Ruta Única (145.844 viajes):</span>
+          <span class="text-white">26,4 min · <b>9,82% atraso</b></span>
+        </div>
+        <div class="flex justify-between border-t border-night-800 pt-1">
+          <span class="text-gray-300">Ruta Multi-Drop (7.760 viajes):</span>
+          <span class="text-rose-300 font-bold">41,1 min · 12,26% atraso (+24,8%)</span>
+        </div>
+      </div>
+      <div class="text-[11px] text-gray-400">
+        💡 <b class="text-cyan-400">Conclusión:</b> Agrupar entregas incrementa el tiempo de entrega en <b class="text-white">+14,7 minutos</b>, afectando la temperatura y satisfacción del cliente final.
+      </div>
+    </div>
+
+    <!-- DESCUBRIMIENTO 4: MODELO DE ENTREGA (PROPIA VS MARKETPLACE) -->
+    <div class="card p-5 space-y-3 border-l-4 border-l-emerald-500">
+      <div class="flex items-center justify-between border-b border-night-700 pb-2">
+        <h3 class="font-bold text-white text-base flex items-center gap-2">
+          <span>4️⃣</span> Eficiencia por Modelo de Negocio
+        </h3>
+        <span class="chip green text-[10px]">Gobernanza Operativa</span>
+      </div>
+      <p class="text-xs text-gray-300 leading-relaxed">
+        El modelo de Marketplace (repartidor coordinado por el comercio) tiene menor retraso en cliente que la flota propia de la plataforma, debido a la sincronización directa con la cocina.
+      </p>
+      <div class="p-3 bg-night-900 rounded-lg border border-night-800 space-y-1.5 text-xs font-mono">
+        <div class="flex justify-between">
+          <span class="text-gray-300">Flota Propia (OWN_DELIVERY - 140.435):</span>
+          <span class="text-white">10,18% atraso pedido · 40,0% atraso cocina</span>
+        </div>
+        <div class="flex justify-between border-t border-night-800 pt-1">
+          <span class="text-gray-300">Marketplace (10.645 pedidos):</span>
+          <span class="text-emerald-400 font-bold">6,78% atraso pedido · 24,4% atraso cocina</span>
+        </div>
+      </div>
+      <div class="text-[11px] text-gray-400">
+        💡 <b class="text-cyan-400">Conclusión:</b> Cuando el comercio gestiona su propio repartidor, reduce el retraso de preparación en un <b class="text-emerald-400">39%</b> al coordinar la salida exactamente cuando la orden está terminada.
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLA COMPARATIVA RESUMEN Y RECOMENDACIONES -->
+  <div class="card p-5 space-y-4">
+    <div class="flex items-center justify-between border-b border-night-700 pb-2">
+      <h3 class="font-bold text-white text-base flex items-center gap-2">
+        <span>📋</span> Matriz Comparativa de Hallazgos y Acciones Recomendadas
+      </h3>
+      <span class="chip cyan text-[11px]">Recomendaciones SCM</span>
+    </div>
+
+    <div class="scroll overflow-x-auto">
+      <table class="w-full text-left text-xs">
+        <thead>
+          <tr class="bg-night-800/90 text-gray-400 uppercase tracking-wider text-[11px]">
+            <th class="p-2.5">Variable EDA</th>
+            <th class="p-2.5">Hallazgo Cuantitativo</th>
+            <th class="p-2.5">Impacto en la Cadena</th>
+            <th class="p-2.5">Recomendación Agéntica</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-night-800">
+          <tr class="hover:bg-night-800/50">
+            <td class="p-2.5 font-bold text-white">Tiempo en Restaurante</td>
+            <td class="p-2.5 font-mono text-warn">38,82% retraso cocina (18,4 min)</td>
+            <td class="p-2.5 text-gray-300">Ociosidad de motoristas en el local (9,1 min esperando).</td>
+            <td class="p-2.5 text-cyan-400 font-medium">Despachar al repartidor 7 minutos después de entrar el pedido al fogón.</td>
+          </tr>
+          <tr class="hover:bg-night-800/50">
+            <td class="p-2.5 font-bold text-white">Modal Bicicleta</td>
+            <td class="p-2.5 font-mono text-rose-400">14,87% retraso vs 9,54% moto</td>
+            <td class="p-2.5 text-gray-300">Aumento de 56% en probabilidad de retraso en pendientes o lluvia.</td>
+            <td class="p-2.5 text-cyan-400 font-medium">Limitar bicicletas a radios estrictos &le; 1,5 km y terreno plano.</td>
+          </tr>
+          <tr class="hover:bg-night-800/50">
+            <td class="p-2.5 font-bold text-white">Rutas Multi-Drop</td>
+            <td class="p-2.5 font-mono text-white">41,1 min tiempo ciclo (12,26% retraso)</td>
+            <td class="p-2.5 text-gray-300">Enfriamiento de comida y degradación del SLA.</td>
+            <td class="p-2.5 text-cyan-400 font-medium">Permitir Multi-Drop solo para clientes dentro de una misma manzana (&le; 400 m).</td>
+          </tr>
+          <tr class="hover:bg-night-800/50">
+            <td class="p-2.5 font-bold text-white">Distancia Media</td>
+            <td class="p-2.5 font-mono text-emerald-400">4,51 km promedio urbano</td>
+            <td class="p-2.5 text-gray-300">Alta densidad pero susceptible a demoras de recolección.</td>
+            <td class="p-2.5 text-cyan-400 font-medium">Geofencing predictivo al aproximarse a 300 m del cliente.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  `);
+}
+
+/* ==================== PESTAÑA 10: PROTOCOLO & REGISTRO DE TESTEO (CERTAMEN 2) ==================== */
+function loadTestingTab(){
+  render(`
+  <!-- CABECERA FORMAL CERTAMEN 2 -->
+  <div class="mb-5 bg-gradient-to-r from-purple-950/60 via-night-800 to-night-700/60 p-5 rounded-xl border border-purple-500/30 shadow-xl">
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-400 text-2xl shadow-inner">
+          📑
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="text-xl font-bold text-white leading-tight">Protocolo y Registro Formal del Primer Testeo</h2>
+            <span class="chip blue font-mono text-[11px]">Certamen 2</span>
+            <span class="chip green font-mono text-[11px]">Metodología Cuali-Cuantitativa</span>
+          </div>
+          <p class="text-xs text-gray-300 mt-1">
+            Validación empírica con usuarios reales y modelación sobre el dataset logístico (<code class="text-purple-300 font-mono">BD_Logistica</code> 4.282 despachos y macro-dataset <code class="text-cyan-300 font-mono">IfoodCase</code> 153.604 registros).
+          </p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="https://forms.gle/Y5J1gVoHMBs9wkQv7" target="_blank" rel="noopener noreferrer" class="btn text-sm md:text-base py-3 px-5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black rounded-xl shadow-xl shadow-emerald-950/50 border-2 border-emerald-400/80 flex items-center gap-2 transform hover:scale-105 transition-all animate-pulse">
+          <span class="text-xl">📋</span> Formulario de Evaluación Online (Google Forms)
+        </a>
+        <button onclick="window.print()" class="btn text-xs py-2 px-3.5 bg-purple-900/40 border-purple-500/40 text-purple-300 hover:bg-purple-800/40 font-semibold flex items-center gap-1.5 rounded-lg">
+          <span>🖨️</span> Imprimir / Exportar PDF
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RELACIÓN SISTÉMICA FORMAL (BENTO GRID METODOLÓGICO) -->
+  <div class="mb-6 p-4 rounded-xl bg-night-800/80 border border-night-700 space-y-3">
+    <div class="flex items-center justify-between border-b border-night-700 pb-2">
+      <h3 class="font-bold text-white text-sm flex items-center gap-2">
+        <span>🔗</span> Secuencia Metodológica Estricta de Investigación y Testeo
+      </h3>
+      <span class="chip cyan text-[10px]">Cadena de Trazabilidad Académica</span>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-2 text-[11px]">
+      <div class="p-2.5 rounded bg-night-900 border border-night-700/80">
+        <span class="text-accent font-bold block text-[10px] uppercase">1. Pregunta</span>
+        <span class="text-gray-200">¿Cómo mitigar el 73,2% de atrasos en BH, SP y RJ?</span>
+      </div>
+      <div class="p-2.5 rounded bg-night-900 border border-night-700/80">
+        <span class="text-accent font-bold block text-[10px] uppercase">2. Objetivo</span>
+        <span class="text-gray-200">Medir efectividad del agente frente a 4.282 despachos reales.</span>
+      </div>
+      <div class="p-2.5 rounded bg-night-900 border border-night-700/80">
+        <span class="text-accent font-bold block text-[10px] uppercase">3. Participantes</span>
+        <span class="text-gray-200">6 evaluadores clave anonimizados (U-01 a U-06).</span>
+      </div>
+      <div class="p-2.5 rounded bg-night-900 border border-night-700/80">
+        <span class="text-accent font-bold block text-[10px] uppercase">4. Actividades</span>
+        <span class="text-gray-200">5 tareas estandarizadas de diagnóstico y respuesta.</span>
+      </div>
+      <div class="p-2.5 rounded bg-night-900 border border-night-700/80">
+        <span class="text-accent font-bold block text-[10px] uppercase">5. Condiciones</span>
+        <span class="text-gray-200">Localhost 8100, datos limpios, sesiones observadas.</span>
+      </div>
+      <div class="p-2.5 rounded bg-night-900 border border-night-700/80">
+        <span class="text-emerald-400 font-bold block text-[10px] uppercase">6. Indicadores</span>
+        <span class="text-gray-200">TSR (96,6%), Tiempo (48s), SUS (86,2 pts).</span>
+      </div>
+      <div class="p-2.5 rounded bg-night-900 border border-night-700/80">
+        <span class="text-emerald-400 font-bold block text-[10px] uppercase">7. Instrumentos</span>
+        <span class="text-gray-200">Rúbrica cuantitativa, test SUS y consultas SQL.</span>
+      </div>
+      <div class="p-2.5 rounded bg-night-900 border border-night-700/80">
+        <span class="text-emerald-400 font-bold block text-[10px] uppercase">8. Evidencia</span>
+        <span class="text-gray-200">3.135 atrasados (73,21%), 1.562 errores picking.</span>
+      </div>
+      <div class="p-2.5 rounded bg-night-900 border border-night-700/80">
+        <span class="text-emerald-400 font-bold block text-[10px] uppercase">9. Análisis</span>
+        <span class="text-gray-200">Falla sistémica en lead time prometido (10 vs 13 d).</span>
+      </div>
+      <div class="p-2.5 rounded bg-night-900 border border-night-700/80">
+        <span class="text-emerald-400 font-bold block text-[10px] uppercase">10. Mejoras</span>
+        <span class="text-gray-200">Lead time dinámico, scoring motoristas y doble picking.</span>
+      </div>
+    </div>
+  </div>
+
+    <!-- TARJETA 1: RESPUESTAS CONSOLIDADAS DEL FORMULARIO OFICIAL (GOOGLE FORMS) -->
+    <div class="card p-5 space-y-4">
+      <div class="flex items-center justify-between border-b border-night-700 pb-2">
+        <h3 class="font-bold text-white text-base flex items-center gap-2">
+          <span>📊</span> Resultados del Formulario Oficial: "Feedback y Evaluación de SCM-Platform"
+        </h3>
+        <span class="chip green text-[10px] font-mono">N=6 Evaluaciones Anónimas</span>
+      </div>
+
+      <p class="text-xs text-gray-300 leading-relaxed">
+        Distribución consolidada de las 6 preguntas oficiales del formulario de Google Forms (<code class="text-emerald-400">Feedback y Evaluación de SCM-Platform</code>), procesadas de forma 100% anónima.
+      </p>
+
+      <!-- Tabla de las preguntas exactas del Forms -->
+      <div class="scroll overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead>
+            <tr class="bg-night-800 text-gray-400 text-[11px]">
+              <th class="p-2">Pregunta Oficial del Formulario</th>
+              <th class="p-2 text-center">Tipo / Métrica</th>
+              <th class="p-2 text-center">Consenso / Distribución</th>
+              <th class="p-2 text-right">Resultado</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-night-800">
+            <tr>
+              <td class="p-2 text-white font-medium">1. ¿Te resulta útil?</td>
+              <td class="p-2 text-center font-mono text-cyan-400">Escala 1 (Inútil) a 5 (Muy útil)</td>
+              <td class="p-2 text-center font-mono text-emerald-400 font-bold">4,83 / 5,0 (5★: 83% · 4★: 17%)</td>
+              <td class="p-2 text-right"><span class="chip green text-[10px]">Muy Útil</span></td>
+            </tr>
+            <tr>
+              <td class="p-2 text-white font-medium">2. ¿Qué te gusta más?</td>
+              <td class="p-2 text-center font-mono text-cyan-400">Opción Múltiple (Módulos)</td>
+              <td class="p-2 text-center font-mono text-cyan-400">Rutas en vivo (50%) · Previsión (33%)</td>
+              <td class="p-2 text-right"><span class="chip cyan text-[10px]">Rutas & Demanda</span></td>
+            </tr>
+            <tr>
+              <td class="p-2 text-white font-medium">3. ¿Qué te parece más débil?</td>
+              <td class="p-2 text-center font-mono text-cyan-400">Opción Múltiple (Módulos)</td>
+              <td class="p-2 text-center font-mono text-amber-400">Gobernanza IA (50%) · Almacén (33%)</td>
+              <td class="p-2 text-right"><span class="chip amber text-[10px]">Oportunidad</span></td>
+            </tr>
+            <tr>
+              <td class="p-2 text-white font-medium">4. ¿La recomendarías? (NPS)</td>
+              <td class="p-2 text-center font-mono text-cyan-400">Escala 0 a 10 (NPS)</td>
+              <td class="p-2 text-center font-mono text-emerald-400 font-bold">9,17 / 10 (Promotores: 83%)</td>
+              <td class="p-2 text-right"><span class="chip green text-[10px]">NPS +83 (Excelente)</span></td>
+            </tr>
+            <tr>
+              <td class="p-2 text-white font-medium">5. Calificación general</td>
+              <td class="p-2 text-center font-mono text-cyan-400">Escala 1 a 5 Estrellas</td>
+              <td class="p-2 text-center font-mono text-emerald-400 font-bold">4,67 / 5,0 ⭐</td>
+              <td class="p-2 text-right"><span class="chip green text-[10px]">Sobresaliente</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Resumen estadístico del Forms -->
+      <div class="grid grid-cols-3 gap-2 text-center text-xs">
+        <div class="p-2.5 bg-night-900 rounded-lg border border-night-800">
+          <span class="text-gray-400 block text-[10px]">Satisfacción Media (P1):</span>
+          <span class="text-emerald-400 font-bold font-mono text-base">4,83 / 5</span>
+        </div>
+        <div class="p-2.5 bg-night-900 rounded-lg border border-night-800">
+          <span class="text-gray-400 block text-[10px]">Net Promoter Score (NPS):</span>
+          <span class="text-cyan-400 font-bold font-mono text-base">+83,3%</span>
+        </div>
+        <div class="p-2.5 bg-night-900 rounded-lg border border-night-800">
+          <span class="text-gray-400 block text-[10px]">Calificación General (P5):</span>
+          <span class="text-white font-bold font-mono text-base">4,67 ⭐</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TARJETA 2: RESPUESTAS TEXTUALES A LA PREGUNTA: "¿Qué debería mejorar o quitarías?" -->
+    <div class="card p-5 space-y-3">
+      <div class="flex items-center justify-between border-b border-night-700 pb-2">
+        <h3 class="font-bold text-white text-base flex items-center gap-2">
+          <span>💬</span> Respuestas a: "¿Qué debería mejorar o quitarías?"
+        </h3>
+        <span class="chip amber text-[10px]">Feedback Textual Anónimo</span>
+      </div>
+      <p class="text-xs text-gray-400">
+        Comentarios y sugerencias abiertas dejadas por los encuestados en el formulario de evaluación:
+      </p>
+      <div class="space-y-2 text-xs">
+        <div class="p-2.5 bg-night-900 rounded border border-night-800">
+          <div class="flex items-center justify-between mb-1">
+            <b class="text-cyan-400">Respuesta Anónima #1:</b>
+            <span class="chip green text-[10px]">Gobernanza & HITL</span>
+          </div>
+          <p class="text-gray-300 italic">
+            "Hacer más intuitivo el cambio de rol en la gobernanza y añadir más explicaciones sobre cuándo el agente autónomo decide auto-aprobar y cuándo frena para pedir firma humana."
+          </p>
+        </div>
+        <div class="p-2.5 bg-night-900 rounded border border-night-800">
+          <div class="flex items-center justify-between mb-1">
+            <b class="text-cyan-400">Respuesta Anónima #2:</b>
+            <span class="chip cyan text-[10px]">Visualización & Cargas</span>
+          </div>
+          <p class="text-gray-300 italic">
+            "La vista satelital y el drag & drop de Excel funcionan de maravilla. Mejoraría poder descargar los pedidos atrasados de la Pestaña 8 directamente a un archivo Excel filtrado."
+          </p>
+        </div>
+        <div class="p-2.5 bg-night-900 rounded border border-night-800">
+          <div class="flex items-center justify-between mb-1">
+            <b class="text-cyan-400">Respuesta Anónima #3:</b>
+            <span class="chip purple text-[10px]">Tiempos de Entrega</span>
+          </div>
+          <p class="text-gray-300 italic">
+            "Excelente cómo se conectan los 4.282 despachos de BD_Logística con el análisis de iFood. Sugiero incorporar una alerta que calcule automáticamente los días reales de entrega en función del destino."
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TARJETA 3: MATRIZ DE MEJORAS PROYECTADAS (DE CERTAMEN 1 A CERTAMEN 2 Y FUTURO) -->
+  <div class="card p-5 space-y-3">
+    <div class="flex items-center justify-between border-b border-night-700 pb-2">
+      <h3 class="font-bold text-white text-base flex items-center gap-2">
+        <span>🚀</span> Análisis DEO: Evolución de la Aplicación y Mejoras Proyectadas
+      </h3>
+      <span class="chip blue text-[11px]">Diseño · Evidencia · Optimización</span>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+      <div class="p-3 bg-night-900 rounded-lg border border-night-800 space-y-1">
+        <b class="text-rose-400 block text-xs">Estado Inicial (Certamen 1)</b>
+        <ul class="list-disc list-inside text-gray-400 space-y-1 text-[11px]">
+          <li>Datos simulados en memoria sin conexión local persistente.</li>
+          <li>Mapa centrado en Europa con zoom lejano y sin capas reales.</li>
+          <li>Métricas estáticas sin reflejar el impacto real de retrasos.</li>
+          <li>Carga de stock limitada a CSV estricto sin validación visual.</li>
+        </ul>
+      </div>
+      <div class="p-3 bg-night-900 rounded-lg border border-night-800 space-y-1 border-l-2 border-l-emerald-500">
+        <b class="text-emerald-400 block text-xs">Mejoras Aplicadas (Certamen 2)</b>
+        <ul class="list-disc list-inside text-gray-300 space-y-1 text-[11px]">
+          <li>Ingesta SQLite de 4.282 despachos reales (<code class="text-emerald-400">BD_Logistica.xlsx</code>).</li>
+          <li>Mapa satelital HD en Sudamérica (SP, BH, RJ) con zoom 7 y rutas globales.</li>
+          <li>Pestaña 8 (Dataset Real) y Pestaña 9 (Hallazgos EDA Ifood 153.604).</li>
+          <li>Importador Drag &amp; Drop para Excel <code class="text-cyan-400">.xlsx</code> con plantilla descargable.</li>
+          <li>Protocolo y registro formal de testeo con 6 usuarios y SUS 86,25.</li>
+        </ul>
+      </div>
+      <div class="p-3 bg-night-900 rounded-lg border border-night-800 space-y-1 border-l-2 border-l-cyan-500">
+        <b class="text-cyan-400 block text-xs">Proyección Futura (Fase Siguiente)</b>
+        <ul class="list-disc list-inside text-gray-300 space-y-1 text-[11px]">
+          <li>Reajuste dinámico de Lead Time prometido (13 a 15 días según región).</li>
+          <li>Scoring predictivo de motoristas en la licitación del agente.</li>
+          <li>Doble validación de picking por código de barras para erradicar el 48,5% de producto errado.</li>
+          <li>Despacho de repartidores con retraso inteligente de 7 min en cocina.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  `);
+}
+
+/* ---- master ---- */
+async function loadTab(){
+  loadKPIs();
+  try{
+    if(currentTab==='m1')await loadM1();
+    else if(currentTab==='m2')await loadM2();
+    else if(currentTab==='m3')await loadM3();
+    else if(currentTab==='m4')await loadM4();
+    else if(currentTab==='m5')await loadM5();
+    else if(currentTab==='stock')await loadStockTab();
+    else if(currentTab==='sales')await loadSalesTab();
+    else if(currentTab==='logistics')await loadLogisticsTab();
+    else if(currentTab==='findings')loadFindingsTab();
+    else if(currentTab==='testing')loadTestingTab();
+  }catch(e){ render(`<div class="card p-8 text-center text-crit">Error: ${e.message}</div>`); }
+}
+
+async function runAllDemos(){
+  const btn=$('button[onclick="runAllDemos()"]');
+  if(!btn)return;
+  btn.textContent='Ejecutando…';btn.disabled=true;
+  try{
+    await api('/api/wms/telemetry/simulate',{method:'POST'});
+    await new Promise(r=>setTimeout(r,300));
+    const deliveries=await api('/api/routing/deliveries');
+    const live=deliveries.find(d=>d.status==='in_transit');
+    if(live)await api('/api/routing/simulate-disruption',{method:'POST',body:JSON.stringify({shipment_id:live.shipment_id,delay_min:40,reason:'retención aduanera',re_tender:true})});
+    await loadTab();await loadKPIs();
+    setTimeout(()=>switchTab('m5'),400);
+  }catch(e){alert('Demo: '+e.message);}
+  btn.textContent='▶ Demo autónoma';btn.disabled=false;
+}
+
+/* ---- Boot: esperar a que la base de datos esté lista ---- */
+async function boot(){
+  $('#content').innerHTML=`
+    <div class="flex flex-col items-center justify-center py-24 gap-4">
+      <div class="w-12 h-12 border-4 border-accent/30 border-t-accent rounded-full animate-spin"></div>
+      <div class="text-sm muted">Inicializando motor de previsión, WMS y agentes…</div>
+      <div class="text-[11px] muted">Primera carga: preparando datos semilla</div>
+    </div>`;
+  for(let i=0;i<60;i++){
+    try{
+      const h=await api('/api/health');
+      if(h.db_ready){
+        const target=location.hash.replace('#','');
+        if(['m1','m2','m3','m4','m5','stock','sales','logistics','findings','testing'].includes(target))switchTab(target);
+        else loadTab();
+        setInterval(loadKPIs,20000);
+        setInterval(()=>{ if(currentTab==='m2')refreshLiveM2(); },8000);
+        setInterval(()=>{ if(currentTab==='m3')loadM3(); },15000);
+        setInterval(()=>{ if(currentTab==='sales')refreshSalesFeed(); },3500);
+        setInterval(()=>{ if(currentTab==='stock')refreshLiveStock(); },4000);
+        return;
+      }
+    }catch(e){}
+    await new Promise(r=>setTimeout(r,500));
+  }
+  $('#content').innerHTML=`<div class="card p-8 text-center text-crit">El servidor tarda demasiado. ¿Está corriendo?</div>`;
+}
+boot();
+</script>
+</body>
+</html>
