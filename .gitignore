@@ -21,4 +21,6 @@ downloads/
 # Logs
 *.log
 scm.log
-*.db
+*.db
+.git_bin/
+
